@@ -105,7 +105,7 @@ private:
     int    capacity;
     int    size;
 
-    static const float MAX_LOAD = 0.75;
+    static constexpr float MAX_LOAD = 0.75;
 
     
    int hash(const std::string& key) const {
