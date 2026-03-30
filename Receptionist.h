@@ -4,47 +4,33 @@
 #include "User.h"
 #include "Patient.h"
 #include "Clinic.h"
+#include "Queue.h"
 #include <string>
 #include <iostream>
 #include <utility>
 
-// ============================================================
-// PendingNode — internal linked-list node for the FIFO queue.
-// Separate from teammates' Queue.h to avoid naming conflicts.
-// ============================================================
-struct PendingNode {
-    Patient*     patient;
-    PendingNode* next;
-    explicit PendingNode(Patient* p) : patient(p), next(nullptr) {}
-};
-
-// ============================================================
 // Receptionist Class
 // Manages two responsibilities:
 //
-//   1. FIFO Pending Queue:
+//   1. FIFO Pending Queue (backed by Queue):
 //      Patients who selected "Other" are enqueued here in
-//      arrival order (pure FIFO — no priority). The receptionist
-//      dequeues them one by one, assigns a Category based on
-//      visual triage, then routes them into the correct Clinic's
-//      PriorityQueue.
+//      strict arrival order. The receptionist dequeues them
+//      one by one, assigns a Category based on visual triage,
+//      then routes them into the correct Clinic's PriorityQueue.
+//      The Queue class owns the linked-list logic — Receptionist
+//      simply calls enqueue/dequeue/display on it.
 //
 //   2. Triage:
-//      assignUrgency() sets the patient's Condition (with the
-//      chosen Category), computes their priority score, and
-//      calls clinic->enqueuePatient(). Until this step, the
-//      patient has priorityScore = -1 and is NOT in any
-//      PriorityQueue.
+//      assignUrgencyAndRoute() sets the patient's Condition,
+//      computes their priority score, and calls
+//      clinic->enqueuePatient(). Until this step the patient
+//      has priorityScore = -1 and is NOT in any PriorityQueue.
 //
 // This design directly demonstrates FIFO vs. Priority Queue
 // comparison as required by the challenge section.
-// ============================================================
 class Receptionist : public User {
 private:
-    // FIFO linked-list queue for pending "Other" patients
-    PendingNode*       front;
-    PendingNode*       rear;
-    int                pendingCount;
+    Queue              pendingQueue;   // FIFO queue — no custom linked list needed
     std::pair<int,int> workingHours;
     bool               onDuty;
 
@@ -52,57 +38,34 @@ public:
     Receptionist(int id, const std::string& name,
                  std::pair<int,int> hours = {7, 20})
         : User(id, name, UserRole::RECEPTIONIST),
-          front(nullptr), rear(nullptr), pendingCount(0),
           workingHours(hours), onDuty(true)
     {}
 
-    ~Receptionist() {
-        // Free any remaining pending nodes (not the patients themselves)
-        PendingNode* cur = front;
-        while (cur) {
-            PendingNode* tmp = cur->next;
-            delete cur;
-            cur = tmp;
-        }
-    }
+    // Destructor is default — Queue's own destructor cleans up nodes.
 
     // ---- FIFO Pending Queue -------------------------------------
 
     // Called when patient picks "Other" — O(1)
     void receivePendingPatient(Patient* p) {
-        PendingNode* node = new PendingNode(p);
-        if (!rear) {
-            front = rear = node;
-        } else {
-            rear->next = node;
-            rear       = node;
-        }
-        pendingCount++;
+        pendingQueue.enqueue(p);
         std::cout << "  [Receptionist " << name << "] Received pending patient: "
                   << p->getName() << " (ID " << p->getId() << ")\n";
     }
 
-    // Peek at next patient to triage — O(1)
+    // Peek at next patient without removing — O(1)
     Patient* peekNextPending() const {
-        return front ? front->patient : nullptr;
+        return pendingQueue.peek();
     }
 
-    // Dequeue next pending patient (internal) — O(1)
+    // Remove and return next pending patient — O(1)
     Patient* dequeuePending() {
-        if (!front) return nullptr;
-        PendingNode* tmp = front;
-        Patient*     p   = tmp->patient;
-        front = front->next;
-        if (!front) rear = nullptr;
-        delete tmp;
-        pendingCount--;
-        return p;
+        return pendingQueue.dequeue();
     }
 
     // ---- Triage -------------------------------------------------
     // Dequeues the next pending patient, assigns a Category and
     // estimated treatment time, then routes them to their Clinic.
-    // Returns the triaged patient or nullptr if queue empty.
+    // Returns the triaged patient, or nullptr if queue is empty.
     Patient* assignUrgencyAndRoute(UrgencyLevel chosenLevel,
                                    int estimatedTreatmentMinutes,
                                    Clinic* clinic) {
@@ -121,24 +84,15 @@ public:
     }
 
     // ---- Accessors ----------------------------------------------
-    int  getPendingCount() const { return pendingCount; }
-    bool hasPending()      const { return pendingCount > 0; }
+    int  getPendingCount() const { return pendingQueue.getSize(); }
+    bool hasPending()      const { return !pendingQueue.isEmpty(); }
     bool isOnDuty()        const { return onDuty; }
     void setOnDuty(bool v)       { onDuty = v; }
 
     void displayPendingQueue() const {
         std::cout << "  [Receptionist " << name << "] Pending queue ("
-                  << pendingCount << "):\n";
-        PendingNode* cur = front;
-        int pos = 1;
-        while (cur) {
-            std::cout << "    " << pos++ << ". "
-                      << cur->patient->getName()
-                      << " (ID " << cur->patient->getId() << ")\n";
-            cur = cur->next;
-        }
-        if (pendingCount == 0)
-            std::cout << "    (empty)\n";
+                  << pendingQueue.getSize() << "):\n";
+        pendingQueue.display();
     }
 
     void displayInfo() const override {
@@ -149,7 +103,7 @@ public:
         std::cout << "  Shift       : " << workingHours.first << ":00 - "
                   << workingHours.second << ":00\n";
         std::cout << "  On Duty     : " << (onDuty ? "Yes" : "No") << "\n";
-        std::cout << "  Pending     : " << pendingCount << "\n";
+        std::cout << "  Pending     : " << pendingQueue.getSize() << "\n";
         std::cout << "+-----------------------------------------+\n";
     }
 };
