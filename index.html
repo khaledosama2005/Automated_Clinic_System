@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Priority Queue System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; }
+        .dashboard-section { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .queue-box { min-height: 150px; border: 1px dashed #ccc; padding: 10px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Hospital Queue Management</h1>
+        <span class="badge bg-dark fs-5">System Tick: <span id="display-tick">0</span></span>
+    </div>
+
+    <div class="dashboard-section text-center bg-light border">
+        <h4>System Time Controls</h4>
+        <button id="btn-tick" class="btn btn-warning fw-bold px-4 mx-2">Advance Time (Tick)</button>
+        <button id="btn-reset" class="btn btn-danger px-4 mx-2">Reset System</button>
+    </div>
+
+    <div class="row">
+        <div class="col-md-5">
+            
+            <div class="dashboard-section border-primary border-top border-3">
+                <h3>1. Walk-In Registration</h3>
+                <form id="registration-form">
+                    <div class="mb-3">
+                        <label class="form-label">Patient Name</label>
+                        <input type="text" id="patient-name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Target Clinic</label>
+                        <select id="walkin-clinic" class="form-select" required>
+                            <option value="">Loading clinics...</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Register Patient (To Pending)</button>
+                </form>
+            </div>
+
+            <div class="dashboard-section border-warning border-top border-3">
+                <h3>2. Receptionist Triage</h3>
+                <p class="text-muted small">Patients waiting for evaluation and routing.</p>
+                <div id="pending-queue" class="queue-box bg-light">
+                    <p class="text-muted text-center mt-3">No pending patients.</p>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="col-md-7">
+
+            <div class="dashboard-section border-success border-top border-3">
+                <h3>Doctor Status</h3>
+                <div id="doctor-status" class="d-flex flex-wrap gap-2">
+                    <span class="badge bg-secondary p-2">Loading Doctors...</span>
+                </div>
+            </div>
+
+            <div class="dashboard-section border-info border-top border-3">
+                <h3>3. Live Clinic Queues</h3>
+                <div id="clinics-container">
+                    <p class="text-muted text-center mt-3">Loading clinics from backend...</p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="triageModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title text-dark">Triage Patient: <span id="triage-patient-name" class="fw-bold"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="triage-form">
+                    <input type="hidden" id="triage-patient-id">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Route to Clinic</label>
+                        <select id="triage-clinic" class="form-select" required>
+                            <option value="">Loading clinics...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Urgency Level (1 = Low, 10 = Critical)</label>
+                        <input type="number" id="triage-urgency" class="form-control" min="1" max="10" value="5" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Estimated Treatment Minutes</label>
+                        <input type="number" id="triage-est-time" class="form-control" min="5" max="120" value="30" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-warning w-100 fw-bold">Confirm Triage</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    const API_BASE = 'http://127.0.0.1:8000/api'; 
+
+    async function sendCommand(action, payloadData = {}) {
+        try {
+            const response = await fetch(`${API_BASE}/${action}/`, { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: action, data: payloadData })
+            });
+            
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const result = await response.json();
+            
+            if (result.status === "ok") {
+                return result.data || true; 
+            } else {
+                console.error("Backend returned error:", result.message);
+                return null;
+            }
+            
+        } catch (error) {
+            console.warn(`Connection to backend failed for '${action}'.`, error);
+            return null;
+        }
+    }
+
+    function populateClinicDropdowns(clinics) {
+        const options = clinics.map(c => `<option value="${c.id}">${c.name} (${c.specialty})</option>`).join('');
+        document.getElementById('walkin-clinic').innerHTML = '<option value="">Select Clinic...</option>' + options;
+        document.getElementById('triage-clinic').innerHTML = '<option value="">Select Clinic...</option>' + options;
+    }
+
+    // Walk-In Registration
+    document.getElementById('registration-form').addEventListener('submit', async (e) => {
+        e.preventDefault(); 
+        const name = document.getElementById('patient-name').value.trim();
+        const clinicId = document.getElementById('walkin-clinic').value;
+        if (!name || !clinicId) return;
+
+        const result = await sendCommand('add_pending_patient', { name: name, clinicId: parseInt(clinicId) });
+        
+        if (result) alert(`${name} added to pending queue!`);
+        else alert(`Simulated success: ${name} added to pending.`);
+        
+        document.getElementById('patient-name').value = ''; 
+        fetchQueueState();
+    });
+
+    // Fetch & Display Queues
+    async function fetchQueueState() {
+        let state = await sendCommand('get_queue_state');
+        
+        if (!state) {
+            state = {
+                currentTick: 3,
+                clinics: [
+                    {
+                        id: 1, name: "Emergency", specialty: "Emergency Medicine", queueSize: 1,
+                        queue: [{ id: 5, name: "Khaled Ossama", priorityScore: 3999999, conditionName: "Fracture", arrivalTime: 1, estimatedTreatmentMinutes: 40 }],
+                        doctors: [{ name: "Dr. Ali Hassan", specialty: "Emergency Medicine", available: true, minutesUntilFree: 0 }]
+                    },
+                    {
+                        id: 2, name: "Cardiology", specialty: "Cardiology", queueSize: 0,
+                        queue: [],
+                        doctors: [{ name: "Dr. Sara Ahmed", specialty: "Cardiology", available: false, minutesUntilFree: 15 }]
+                    }
+                ],
+                receptionistQueue: [
+                    { id: 4, name: "Nour Adel", arrivalTime: 0, clinicId: 1, conditionName: "Other" }
+                ],
+                pendingCount: 1
+            };
+        }
+
+        document.getElementById('display-tick').innerText = state.currentTick;
+        populateClinicDropdowns(state.clinics);
+
+        // Render Doctor Status
+        const doctorContainer = document.getElementById('doctor-status');
+        const allDoctors = state.clinics.flatMap(c => c.doctors);
+        if (allDoctors.length > 0) {
+            doctorContainer.innerHTML = allDoctors.map(doc => `
+                <div class="card flex-fill shadow-sm ${doc.available ? 'border-success' : 'border-secondary'}">
+                    <div class="card-body p-2 text-center">
+                        <h6 class="mb-1">${doc.name} <small class="text-muted">(${doc.specialty})</small></h6>
+                        <span class="badge ${doc.available ? 'bg-success' : 'bg-secondary'}">
+                            ${doc.available ? 'Available' : `Busy (${doc.minutesUntilFree}m left)`}
+                        </span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Render Receptionist
+        const pendingContainer = document.getElementById('pending-queue');
+        if (state.receptionistQueue && state.receptionistQueue.length > 0) {
+            pendingContainer.innerHTML = state.receptionistQueue.map(p => {
+                const wait = state.currentTick - p.arrivalTime;
+                return `
+                <div class="card mb-2 shadow-sm border-warning">
+                    <div class="card-body p-2 d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="fw-bold">${p.name}</span> <small class="text-muted">(ID: ${p.id})</small><br>
+                            <small>Waiting: ${wait} ticks</small>
+                        </div>
+                        <button class="btn btn-sm btn-outline-warning triage-btn" data-id="${p.id}" data-name="${p.name}" data-clinic="${p.clinicId}">Triage</button>
+                    </div>
+                </div>`;
+            }).join('');
+        } else {
+            pendingContainer.innerHTML = '<p class="text-muted text-center mt-3">No pending patients.</p>';
+        }
+
+        // Render Dynamic Clinic Queues
+        const clinicsContainer = document.getElementById('clinics-container');
+        clinicsContainer.innerHTML = state.clinics.map(clinic => {
+            const patientsHTML = clinic.queue.length > 0 ? clinic.queue.map(p => {
+                const wait = state.currentTick - p.arrivalTime;
+                return `
+                <div class="card mb-2 shadow-sm border-info">
+                    <div class="card-body p-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="fw-bold">${p.name}</span>
+                            <span class="badge bg-danger rounded-pill">Score: ${p.priorityScore}</span>
+                        </div>
+                        <div class="text-muted small mt-1">
+                            ${p.conditionName} | Est: ${p.estimatedTreatmentMinutes}m | Waiting: ${wait} ticks
+                        </div>
+                    </div>
+                </div>`;
+            }).join('') : '<p class="text-muted text-center mt-3">Queue empty.</p>';
+
+            return `
+            <div class="mt-4">
+                <h5 class="d-flex justify-content-between align-items-center text-primary border-bottom pb-2">
+                    ${clinic.name}
+                    <button class="btn btn-sm btn-success serve-btn" data-clinic-id="${clinic.id}">Serve Next</button>
+                </h5>
+                <div class="queue-box bg-white">${patientsHTML}</div>
+            </div>`;
+        }).join('');
+
+        attachButtonListeners();
+    }
+
+    // Modal & Action Logic
+    let triageModalInstance = null;
+
+    function attachButtonListeners() {
+        if (!triageModalInstance) triageModalInstance = new bootstrap.Modal(document.getElementById('triageModal'));
+
+        // Attach Triage Modal Triggers
+        document.querySelectorAll('.triage-btn').forEach(btn => {
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+
+            newBtn.addEventListener('click', (e) => {
+                document.getElementById('triage-patient-id').value = e.target.getAttribute('data-id');
+                document.getElementById('triage-patient-name').innerText = e.target.getAttribute('data-name');
+                document.getElementById('triage-clinic').value = e.target.getAttribute('data-clinic');
+                triageModalInstance.show();
+            });
+        });
+
+        // Attach Serve Next Buttons
+        document.querySelectorAll('.serve-btn').forEach(btn => {
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+
+            newBtn.addEventListener('click', async (e) => {
+                const cId = parseInt(e.target.getAttribute('data-clinic-id'));
+                const result = await sendCommand('serve_next', { clinicId: cId });
+                
+                if (result) alert(`Success! ${result.doctorName} is now serving ${result.patientName}.`);
+                else alert(`Simulated success: Doctor took the next patient.`);
+                
+                fetchQueueState();
+            });
+        });
+    }
+
+    // Triage Submission
+    document.getElementById('triage-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const clinicId = parseInt(document.getElementById('triage-clinic').value);
+        const urgencyLevel = parseInt(document.getElementById('triage-urgency').value);
+        const estTime = parseInt(document.getElementById('triage-est-time').value);
+
+        const result = await sendCommand('triage_pending', { 
+            urgencyLevel: urgencyLevel, 
+            estimatedTreatmentMinutes: estTime, 
+            clinicId: clinicId 
+        });
+
+        if (result) alert(`Successfully routed to ${result.routedTo} with priority ${result.priorityScore}.`);
+        else alert(`Simulated success: Routed with Urgency ${urgencyLevel}.`);
+
+        triageModalInstance.hide();
+        fetchQueueState();
+    });
+
+    // System Tick
+    document.getElementById('btn-tick').addEventListener('click', async () => {
+        const result = await sendCommand('tick');
+        
+        if (result && result.events && result.events.length > 0) {
+            alert("Tick Events:\n" + result.events.join("\n"));
+        } else if (!result) {
+            alert("Simulated success: Time advanced.");
+        }
+        fetchQueueState();
+    });
+
+    // System Reset
+    document.getElementById('btn-reset').addEventListener('click', async () => {
+        if (!confirm("Are you sure you want to completely reset the queues?")) return;
+        await sendCommand('reset');
+        fetchQueueState();
+    });
+
+    fetchQueueState();
+</script>
+</body>
+</html>
