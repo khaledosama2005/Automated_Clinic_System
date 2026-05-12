@@ -288,10 +288,42 @@ async function init() {
     const name = $("loginName").value.trim();
     const phone = $("loginPhone").value.trim();
     setLoginError("");
-    if (!name) {
-      setLoginError("Please enter your name.");
-      return;
-    }
+      /*Validate Area */
+      if (!name) {
+          setLoginError("Please enter your name.");
+          return;
+      }
+      // Min length
+      if (name.length < 3) {
+          setLoginError("Name must be at least 3 characters.");
+          return;
+      }
+      // Max length
+      if (name.length > 30) {
+          setLoginError("Name is too long.");
+          return;
+      }
+      // Only letters and spaces
+      const nameRegex = /^[a-zA-Z\u0600-\u06FF\s]+$/;
+      if (!nameRegex.test(name)) {
+          setLoginError("Name can contain letters only.");
+          return;
+      }
+      // =========================
+      // Phone Validation
+      // =========================
+      // Required
+      if (!phone) {
+          setLoginError("Please enter phone number.");
+          return;
+      }
+      // Egyptian mobile validation
+      // يبدأ بـ 010 / 011 / 012 / 015 + 8 digits
+      const phoneRegex = /^01[0125][0-9]{8}$/;
+      if (!phoneRegex.test(phone)) {
+          setLoginError("Please enter a valid Egyptian mobile number.");
+          return;
+      }
     login = { name, phone, isAdmin: name === "Admin" && phone === "" };
     currentPatientId = null;
     setScreen("app");
