@@ -318,7 +318,7 @@ async function init() {
           return;
       }
       // Egyptian mobile validation
-      // يبدأ بـ 010 / 011 / 012 / 015 + 8 digits
+      //  010 / 011 / 012 / 015 + 8 digits
       const phoneRegex = /^01[0125][0-9]{8}$/;
       if (!phoneRegex.test(phone)) {
           setLoginError("Please enter a valid Egyptian mobile number.");

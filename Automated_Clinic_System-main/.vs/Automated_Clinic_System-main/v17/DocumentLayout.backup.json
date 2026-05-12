@@ -18,24 +18,8 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 4,
+          "SelectedChildIndex": 0,
           "Children": [
-            {
-              "$type": "Bookmark",
-              "Name": "ST:0:0:{131369f2-062d-44a2-8671-91ff31efb4f4}"
-            },
-            {
-              "$type": "Bookmark",
-              "Name": "ST:0:0:{65ddf8c3-8f89-4077-a6c6-dbb8853aab13}"
-            },
-            {
-              "$type": "Bookmark",
-              "Name": "ST:1:0:{65ddf8c3-8f89-4077-a6c6-dbb8853aab13}"
-            },
-            {
-              "$type": "Bookmark",
-              "Name": "ST:0:0:{aa2115a1-9712-457b-9047-dbb71ca2cdd2}"
-            },
             {
               "$type": "Document",
               "DocumentIndex": 0,
@@ -44,7 +28,7 @@
               "RelativeDocumentMoniker": "demo\\app.js",
               "ToolTip": "C:\\Youssef Elishaa\\AUC\\SEMESTER 6 Spring 2026\\Applied Data Structures\\ADS Project\\Project\\Automated_Clinic_System-main\\demo\\app.js",
               "RelativeToolTip": "demo\\app.js",
-              "ViewState": "AgIAADkBAAAAAAAAAAAowEABAAAJAAAAAAAAAA==",
+              "ViewState": "AgIAABUBAAAAAAAAAAAowCIBAAAVAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
               "WhenOpened": "2026-05-12T19:40:26.717Z",
               "EditorCaption": ""
@@ -59,7 +43,8 @@
               "RelativeToolTip": "demo\\index.html",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001512|",
-              "WhenOpened": "2026-05-12T19:40:25.21Z"
+              "WhenOpened": "2026-05-12T19:40:25.21Z",
+              "EditorCaption": ""
             }
           ]
         }
