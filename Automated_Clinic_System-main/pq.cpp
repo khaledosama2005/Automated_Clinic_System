@@ -17,8 +17,8 @@ private:
     int capacity; // max number of patients
     int size;     // current number of patients
 
-    int parent(int i)     { return (i - 1) / 2; }
-    int leftChild(int i)  { return (2 * i) + 1; }
+    int parent(int i) { return (i - 1) / 2; }
+    int leftChild(int i) { return (2 * i) + 1; }
     int rightChild(int i) { return (2 * i) + 2; }
 
     // returns true if a has higher priority than b
@@ -27,13 +27,31 @@ private:
         return a.priorityScore > b.priorityScore;
     }
 
+    // dynamically resizes the array
+    void resize(int newCapacity)
+    {
+        // allocate a new array of the requested size
+        Patient *newArr = new Patient[newCapacity];
+
+        // copy existing patients to the new array
+        for (int i = 0; i < size; i++)
+        {
+            newArr[i] = arr[i];
+        }
+
+        // free the old memory and update pointers/capacity
+        delete[] arr;
+        arr = newArr;
+        capacity = newCapacity;
+    }
+
     // moves a newly inserted patient up to its correct position
     void fixUp(int i)
     {
         while (i > 0 && hasHigherPriority(arr[i], arr[parent(i)]))
         {
-            Patient temp   = arr[i];
-            arr[i]         = arr[parent(i)];
+            Patient temp = arr[i];
+            arr[i] = arr[parent(i)];
             arr[parent(i)] = temp;
             i = parent(i);
         }
@@ -44,8 +62,8 @@ private:
     {
         while (true)
         {
-            int left         = leftChild(i);
-            int right        = rightChild(i);
+            int left = leftChild(i);
+            int right = rightChild(i);
             int highestIndex = i;
 
             if (left < size && hasHigherPriority(arr[left], arr[highestIndex]))
@@ -55,8 +73,8 @@ private:
 
             if (highestIndex != i)
             {
-                Patient temp      = arr[i];
-                arr[i]            = arr[highestIndex];
+                Patient temp = arr[i];
+                arr[i] = arr[highestIndex];
                 arr[highestIndex] = temp;
                 i = highestIndex;
             }
@@ -66,11 +84,13 @@ private:
     }
 
 public:
-    PriorityQueue(int cap)
+    // Added a default parameter so it can be initialized without arguments
+    PriorityQueue(int cap = 10)
     {
-        capacity = cap;
-        arr      = new Patient[capacity];
-        size     = 0;
+        // Prevent initializing with 0 capacity to avoid *2 resulting in 0 later
+        capacity = (cap > 0) ? cap : 1;
+        arr = new Patient[capacity];
+        size = 0;
     }
 
     ~PriorityQueue() { delete[] arr; }
@@ -78,7 +98,11 @@ public:
     // inserts a patient into the queue
     void enqueue(Patient p)
     {
-        if (size == capacity) { cout << "Queue is full!\n"; return; }
+        // if the array is full, double its capacity
+        if (size == capacity)
+        {
+            resize(capacity * 2);
+        }
         arr[size++] = p;
         fixUp(size - 1);
     }
@@ -86,13 +110,21 @@ public:
     // removes and returns the patient with the highest priority
     Patient dequeue()
     {
-        if (size == 0) { cout << "Queue is empty!\n"; return {-1, -1}; }
+        if (size == 0)
+        {
+            cout << "Queue is empty!\n";
+            return {-1, -1};
+        }
         Patient top = arr[0];
         arr[0] = arr[--size];
         fixDown(0);
+
         return top;
     }
 
     // returns true if the queue is empty
     bool isEmpty() { return size == 0; }
+
+    // helper to get current capacity if needed for testing
+    int getCapacity() { return capacity; }
 };
