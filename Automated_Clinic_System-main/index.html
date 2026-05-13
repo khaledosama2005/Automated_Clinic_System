@@ -1,0 +1,1311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Helix GlassCare Ultimate — Automated Clinic System</title>
+  <meta name="description" content="Advanced frontend demo for Helix GlassCare Ultimate automated clinic management system." />
+  <style>
+    :root{
+      --bg:#07111f;
+      --text:#eff7ff;
+      --muted:#95a9c5;
+      --line:rgba(138,176,228,.18);
+      --line-strong:rgba(102,176,255,.45);
+      --glass:rgba(10,20,38,.58);
+      --glass-2:rgba(14,24,44,.70);
+      --glass-3:rgba(255,255,255,.04);
+      --panel-shadow:0 22px 50px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.05);
+      --primary:#6bbdff;
+      --primary-2:#8b7dff;
+      --accent:#37e1d2;
+      --danger:#ef476f;
+      --warning:#ffb100;
+      --success:#11b981;
+      --bg-grad-1:#0ea5e9;
+      --bg-grad-2:#8b5cf6;
+      --bg-grad-3:#10b981;
+      --radius-xl:30px;
+      --radius-lg:24px;
+      --radius-md:18px;
+      --blur:22px;
+      --font:Aptos,'SF Pro Text','Segoe UI','Helvetica Neue',Arial,sans-serif;
+      color-scheme:dark;
+    }
+    body[data-theme="ice"]{
+      --bg:#ecf3ff; --text:#14243b; --muted:#64748b;
+      --line:rgba(116,146,186,.22); --line-strong:rgba(86,147,255,.38);
+      --glass:rgba(255,255,255,.54); --glass-2:rgba(255,255,255,.70); --glass-3:rgba(255,255,255,.34);
+      --panel-shadow:0 18px 45px rgba(89,110,148,.18), inset 0 1px 0 rgba(255,255,255,.35);
+      --primary:#2f7cff; --primary-2:#7b61ff; --accent:#12c7c0;
+      --bg-grad-1:#8bd0ff; --bg-grad-2:#b196ff; --bg-grad-3:#9ef0de;
+      color-scheme:light;
+    }
+    body[data-theme="rose"]{
+      --bg:#fff5fb; --text:#2c2038; --muted:#816f93;
+      --line:rgba(177,134,194,.22); --line-strong:rgba(211,122,237,.34);
+      --glass:rgba(255,255,255,.56); --glass-2:rgba(255,255,255,.75); --glass-3:rgba(255,255,255,.38);
+      --panel-shadow:0 18px 45px rgba(149,103,163,.18), inset 0 1px 0 rgba(255,255,255,.35);
+      --primary:#d946ef; --primary-2:#8b5cf6; --accent:#14b8a6;
+      --bg-grad-1:#f9a8d4; --bg-grad-2:#c4b5fd; --bg-grad-3:#99f6e4;
+      color-scheme:light;
+    }
+    body[data-theme="emerald"]{
+      --bg:#f2fffa; --text:#16312d; --muted:#5e7f78;
+      --line:rgba(104,167,150,.20); --line-strong:rgba(16,185,129,.34);
+      --glass:rgba(255,255,255,.55); --glass-2:rgba(255,255,255,.75); --glass-3:rgba(255,255,255,.36);
+      --panel-shadow:0 18px 45px rgba(85,142,128,.16), inset 0 1px 0 rgba(255,255,255,.35);
+      --primary:#10b981; --primary-2:#0ea5e9; --accent:#22c55e;
+      --bg-grad-1:#86efac; --bg-grad-2:#7dd3fc; --bg-grad-3:#bbf7d0;
+      color-scheme:light;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{
+      margin:0; min-height:100vh; font-family:var(--font); color:var(--text);
+      background:linear-gradient(180deg, color-mix(in srgb,var(--bg) 92%, white) 0%, var(--bg) 100%);
+      overflow-x:hidden; -webkit-font-smoothing:antialiased;
+    }
+    button,input,select,textarea{font:inherit}
+    button{cursor:pointer;border:0;color:inherit;transition:.18s ease}
+    button:hover{transform:translateY(-1px)}
+    input,select,textarea{
+      width:100%; min-height:46px; padding:0 14px; border-radius:16px; border:1px solid var(--line);
+      background:rgba(255,255,255,.05); color:var(--text); outline:none; box-shadow:inset 0 1px 0 rgba(255,255,255,.08);
+    }
+    body:not([data-theme="onyx"]) input, body:not([data-theme="onyx"]) select, body:not([data-theme="onyx"]) textarea{background:rgba(255,255,255,.48)}
+    textarea{padding:14px;min-height:130px;resize:vertical}
+    input:focus,select:focus,textarea:focus{border-color:var(--line-strong);box-shadow:0 0 0 4px color-mix(in srgb,var(--primary) 14%, transparent)}
+    .hidden{display:none!important}
+    .bg-gradient{position:fixed;border-radius:999px;filter:blur(80px);opacity:.42;z-index:-3}
+    .bg1{width:400px;height:400px;background:var(--bg-grad-1);left:-90px;top:-70px}
+    .bg2{width:360px;height:360px;background:var(--bg-grad-2);right:-90px;top:30px}
+    .bg3{width:420px;height:420px;background:var(--bg-grad-3);left:35%;bottom:-140px}
+    .noise{position:fixed;inset:0;pointer-events:none;z-index:-2;opacity:.08;background-image:radial-gradient(circle at 1px 1px, rgba(255,255,255,.7) 1px, transparent 0);background-size:16px 16px}
+    .glass{
+      position:relative;
+      background:linear-gradient(180deg, color-mix(in srgb,var(--glass-2) 88%, transparent), color-mix(in srgb,var(--glass) 92%, transparent));
+      border:1px solid var(--line); backdrop-filter:blur(var(--blur)); box-shadow:var(--panel-shadow);
+    }
+    .glass-soft{background:linear-gradient(180deg, color-mix(in srgb,var(--glass-3) 85%, transparent), color-mix(in srgb,var(--glass) 55%, transparent));border:1px solid var(--line);backdrop-filter:blur(var(--blur))}
+    .topbar{
+      position:sticky;top:0;z-index:100;margin:16px auto 0;width:min(1540px,calc(100% - 24px));
+      padding:16px 18px;border-radius:26px;display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:center;
+    }
+    .brand{display:flex;gap:14px;align-items:center}
+    .brand-mark{
+      width:56px;height:56px;border-radius:20px;display:grid;place-items:center;
+      background:linear-gradient(135deg,var(--primary),var(--primary-2),var(--accent));
+      color:#fff;font-size:1.8rem;font-weight:900;box-shadow:0 14px 24px color-mix(in srgb,var(--primary) 24%, transparent)
+    }
+    .kicker{margin:0 0 6px;font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;font-weight:800;color:var(--primary)}
+    h1,h2,h3,h4,h5,p{margin-top:0}
+    .brand h1,.panel h3,.hero-dashboard h2{margin:0;letter-spacing:-.04em}
+    .nav{display:flex;justify-content:center;gap:10px;flex-wrap:wrap}
+    .nav-btn,.ghost-btn,.primary-btn,.soft-btn,.danger-btn,.close-btn{min-height:44px;padding:0 16px;border-radius:15px;font-weight:800}
+    .nav-btn{background:transparent;color:var(--muted)}
+    .nav-btn.active,.nav-btn:hover{background:rgba(255,255,255,.07);color:var(--text)}
+    body:not([data-theme="onyx"]) .nav-btn.active,body:not([data-theme="onyx"]) .nav-btn:hover{background:rgba(255,255,255,.34)}
+    .header-actions{display:flex;gap:10px;align-items:center}
+    .search-box{display:flex;gap:10px;align-items:center;min-height:46px;padding:0 14px;border-radius:16px;min-width:min(360px,38vw)}
+    .search-box input{background:transparent;border:0;min-height:auto;padding:0;box-shadow:none}
+    .search-box span{color:var(--primary)}
+    .ghost-btn,.soft-btn{background:rgba(255,255,255,.05);border:1px solid var(--line)}
+    body:not([data-theme="onyx"]) .ghost-btn,body:not([data-theme="onyx"]) .soft-btn{background:rgba(255,255,255,.32)}
+    .primary-btn{background:linear-gradient(135deg,var(--primary),var(--accent));color:white;box-shadow:0 14px 24px color-mix(in srgb,var(--primary) 24%, transparent)}
+    .danger-btn{background:color-mix(in srgb,var(--danger) 18%, transparent);color:var(--danger);border:1px solid color-mix(in srgb,var(--danger) 28%, transparent)}
+    .app-shell{width:min(1540px,100%);margin:0 auto;padding:18px 18px 40px;display:grid;gap:18px}
+    .metrics-grid{display:grid;grid-template-columns:1.15fr repeat(4,1fr);gap:12px}
+    .metric{position:relative;min-height:92px;padding:18px;border-radius:24px}
+    .metric small{display:block;color:var(--muted);font-weight:760}
+    .metric strong{display:block;margin-top:6px;font-size:1.75rem;letter-spacing:-.05em}
+    .status-dot{position:absolute;right:14px;top:14px;width:12px;height:12px;border-radius:50%;background:var(--success);box-shadow:0 0 16px var(--success)}
+    .view{display:none;gap:18px}
+    .view.active{display:grid;animation:fade .24s ease}
+    @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+    .hero-grid{display:grid;grid-template-columns:minmax(0,1.08fr) 520px 340px;gap:18px;align-items:stretch}
+    .panel,.side-card,.command-orb,.hero-dashboard{border-radius:30px;padding:24px}
+    .hero-dashboard{min-height:540px;display:grid;gap:18px;align-content:stretch}
+    .dashboard-title,.chart-head,.admin-hero,.appointment-hero,.panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+    .dashboard-title h2,.appointment-hero h3,.admin-hero h3{font-size:clamp(1.75rem,3vw,3rem);line-height:1.02;letter-spacing:-.045em}
+    .live-chip{display:inline-flex;align-items:center;gap:8px;min-height:34px;padding:6px 12px;border-radius:999px;color:var(--success);border:1px solid color-mix(in srgb,var(--success) 35%, transparent);background:color-mix(in srgb,var(--success) 12%, transparent);font-weight:900}
+    .live-chip::before{content:"";width:8px;height:8px;border-radius:999px;background:var(--success);box-shadow:0 0 16px var(--success)}
+    .command-kpis,.appointment-stats,.admin-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+    .mini-stat,.appointment-stats div,.admin-kpis div{padding:15px;border-radius:20px;border:1px solid var(--line);background:rgba(255,255,255,.035);box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+    body:not([data-theme="onyx"]) .mini-stat,body:not([data-theme="onyx"]) .appointment-stats div,body:not([data-theme="onyx"]) .admin-kpis div{background:rgba(255,255,255,.28)}
+    .mini-stat span,.appointment-stats span,.admin-kpis span{display:block;color:var(--muted);font-size:.78rem;font-weight:800}
+    .mini-stat strong,.appointment-stats strong,.admin-kpis strong{display:block;margin-top:4px;font-size:1.55rem;letter-spacing:-.05em}
+    .critical-stat strong{color:var(--danger)}
+    .small-btn{min-height:34px;padding:0 12px}
+    .analytics-strip{display:grid;grid-template-columns:repeat(3,minmax(260px,1fr));gap:18px}
+    .chart-card{border-radius:28px;padding:20px;overflow:hidden;position:relative}
+    .chart-card::after,.panel::after,.command-orb::after{content:"";position:absolute;inset:-80% auto auto -20%;width:40%;height:220%;transform:rotate(18deg);background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent);animation:shimmer 8s linear infinite;pointer-events:none}
+    @keyframes shimmer{0%{translate:-140% 0;opacity:0}15%{opacity:.7}45%{translate:340% 0;opacity:0}100%{translate:340% 0;opacity:0}}
+    .bar-chart,.billing-chart,.funnel{display:grid;gap:12px;margin-top:14px}
+    .bar-row,.billing-chart div,.funnel div{display:grid;grid-template-columns:110px 1fr 48px;align-items:center;gap:10px;color:var(--muted);font-weight:800}
+    .bar-row div,.billing-chart div b,.funnel div b{position:relative;height:12px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.05);border:1px solid var(--line)}
+    body:not([data-theme="onyx"]) .bar-row div,body:not([data-theme="onyx"]) .billing-chart div b,body:not([data-theme="onyx"]) .funnel div b{background:rgba(255,255,255,.24)}
+    .bar-row b,.billing-chart b::after,.funnel b::after{content:"";display:block;height:100%;width:var(--w,8%);min-width:6px;border-radius:inherit;background:linear-gradient(90deg,var(--primary),var(--primary-2),var(--accent));transition:width .5s ease}
+    .billing-chart div,.funnel div{grid-template-columns:120px 1fr 72px}
+    .billing-chart div b,.funnel div b{display:block;width:100%}
+    .spark-chart{height:160px;display:flex;gap:10px;align-items:end;padding:12px;border-radius:22px;background:rgba(255,255,255,.035);border:1px solid var(--line)}
+    body:not([data-theme="onyx"]) .spark-chart{background:rgba(255,255,255,.18)}
+    .spark-chart span{flex:1;height:var(--h,40%);border-radius:999px 999px 8px 8px;background:linear-gradient(180deg,var(--primary),var(--accent));box-shadow:0 10px 26px color-mix(in srgb,var(--primary) 25%, transparent);animation:pulseBars 2.8s ease-in-out infinite}
+    .spark-chart span:nth-child(2n){animation-delay:.35s}.spark-chart span:nth-child(3n){animation-delay:.7s}
+    @keyframes pulseBars{0%,100%{filter:brightness(1)}50%{filter:brightness(1.3)}}
+    .donut-wrap,.admin-donut-wrap{display:grid;grid-template-columns:150px 1fr;gap:18px;align-items:center;margin-top:12px}
+    .donut{width:142px;height:142px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--primary) var(--pct,0%), rgba(255,255,255,.16) 0);position:relative}
+    .donut::after{content:"";position:absolute;inset:16px;border-radius:50%;background:rgba(10,20,38,.88);border:1px solid var(--line)}
+    body:not([data-theme="onyx"]) .donut::after{background:color-mix(in srgb,var(--glass-2) 72%, transparent)}
+    .donut span{position:relative;z-index:2;font-size:1.45rem;font-weight:900}
+    .donut-legend,.capacity-list{display:grid;gap:8px;color:var(--muted);font-weight:800}
+    .dot{display:inline-flex;width:9px;height:9px;border-radius:999px;margin-right:8px}.dot.busy{background:var(--primary)}.dot.free{background:var(--success)}
+    .command-orb{position:relative;overflow:hidden;display:grid;place-items:center;min-height:540px}
+    .orb-shadow{position:absolute;inset:18%;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--primary) 14%,transparent),transparent 70%);filter:blur(18px)}
+    .orb-ring{position:absolute;border-radius:50%;border:1px solid color-mix(in srgb,var(--primary) 24%,transparent)}
+    .ring-a{width:430px;height:430px;animation:spin 22s linear infinite}.ring-b{width:300px;height:300px;border-style:dashed;animation:spinBack 16s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}@keyframes spinBack{to{transform:rotate(-360deg)}}
+    .orb-core{position:relative;z-index:3;width:172px;height:172px;border-radius:50%;display:grid;place-items:center;text-align:center;background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.04));border:1px solid var(--line-strong);box-shadow:0 20px 40px rgba(96,126,166,.16),inset 0 1px 0 rgba(255,255,255,.08)}
+    body:not([data-theme="onyx"]) .orb-core{background:linear-gradient(180deg,rgba(255,255,255,.75),rgba(255,255,255,.45))}
+    .orb-core span,.orb-core small{display:block;color:var(--muted);font-weight:760}.orb-core strong{display:block;font-size:3rem;letter-spacing:-.08em}
+    .orb-node{position:absolute;z-index:4;width:126px;min-height:82px;padding:10px 12px;border-radius:22px;text-align:left;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.03));border:1px solid var(--line);box-shadow:var(--panel-shadow)}
+    body:not([data-theme="onyx"]) .orb-node{background:linear-gradient(180deg,rgba(255,255,255,.72),rgba(255,255,255,.48))}
+    .orb-node strong,.orb-node small{display:block}.orb-node small{color:var(--muted)}
+    .node-1{top:44px;left:42px}.node-2{top:78px;right:42px}.node-3{bottom:74px;left:36px}.node-4{bottom:34px;right:50px}
+    .hero-side{display:grid;gap:18px}
+    .intel-box{min-height:120px;padding:16px;border-radius:20px;background:rgba(255,255,255,.04);border:1px solid var(--line);color:var(--muted)}
+    body:not([data-theme="onyx"]) .intel-box{background:rgba(255,255,255,.34)}
+    .quick-grid{display:grid;grid-template-columns:repeat(2,minmax(120px,1fr));gap:10px}
+    .quick-grid button,.template-pills button{min-height:40px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid var(--line);font-weight:800}
+    body:not([data-theme="onyx"]) .quick-grid button,body:not([data-theme="onyx"]) .template-pills button{background:rgba(255,255,255,.34)}
+    .template-pills{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .template-pills button{min-height:34px;padding:0 10px;border-radius:999px;color:var(--primary)}
+    .ops-grid{display:grid;grid-template-columns:1.08fr .92fr;gap:18px}
+    .stepper{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:18px 0 22px}
+    .stepper span{text-align:center;padding:8px;border-radius:999px;background:rgba(255,255,255,.04);color:var(--muted);font-size:.8rem;font-weight:800;border:1px solid var(--line)}
+    body:not([data-theme="onyx"]) .stepper span{background:rgba(255,255,255,.34)}
+    .stepper .active{background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff;border-color:transparent}
+    .form{display:grid;gap:14px}.form label{display:grid;gap:7px;color:var(--muted);font-weight:760}
+    .form-4{grid-template-columns:repeat(3,minmax(150px,1fr)) auto;align-items:end}.form-3{grid-template-columns:repeat(3,minmax(160px,1fr))}
+    .notice{margin-top:16px;padding:12px 14px;border-radius:16px;background:rgba(255,255,255,.04);border:1px solid var(--line);color:var(--muted)}
+    body:not([data-theme="onyx"]) .notice{background:rgba(255,255,255,.30)}
+    .notice.success{color:var(--success)}.notice.error{color:var(--danger)}
+    .empty-box{min-height:96px;padding:16px;border-radius:20px;border:1px dashed var(--line);background:rgba(255,255,255,.03);color:var(--muted);display:grid;align-content:center}
+    body:not([data-theme="onyx"]) .empty-box{background:rgba(255,255,255,.22)}
+    .range-head{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-weight:800}
+    #urgencyOutput{min-width:40px;height:36px;display:grid;place-items:center;border-radius:12px;background:linear-gradient(135deg,var(--warning),var(--danger));color:#fff;font-weight:900}
+    input[type=range]{padding:0;accent-color:var(--primary)}
+    .queue-head{align-items:flex-end}.queue-filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.queue-filters input{min-width:240px}
+    .queue-lanes{display:grid;grid-template-columns:repeat(3,minmax(260px,1fr));gap:16px;margin-top:18px}
+    .lane{border:1px solid var(--line);border-radius:24px;overflow:hidden;background:rgba(255,255,255,.03);box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
+    body:not([data-theme="onyx"]) .lane{background:rgba(255,255,255,.18)}
+    .lane-top{display:flex;justify-content:space-between;gap:10px;padding:16px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.03)}
+    body:not([data-theme="onyx"]) .lane-top{background:rgba(255,255,255,.24)}
+    .lane-top h4{margin:0;font-size:1.05rem}.lane-top p{margin:4px 0 0;color:var(--muted)}
+    .lane-body{display:grid;gap:12px;padding:14px}
+    .patient-card{padding:14px;border-radius:18px;border:1px solid var(--line);border-left:4px solid var(--primary);background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.03))}
+    body:not([data-theme="onyx"]) .patient-card{background:linear-gradient(180deg,rgba(255,255,255,.58),rgba(255,255,255,.34))}
+    .patient-card.critical{border-left-color:var(--danger)}.patient-card.urgent{border-left-color:var(--warning)}.patient-card.stable{border-left-color:var(--success)}
+    .patient-top{display:flex;justify-content:space-between;gap:10px}.patient-top h5{margin:0;font-size:1rem}.patient-top p{margin:4px 0 0;color:var(--muted)}
+    .tag{display:inline-flex;align-items:center;min-height:28px;padding:4px 8px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid var(--line);font-size:.78rem;font-weight:900}
+    body:not([data-theme="onyx"]) .tag{background:rgba(255,255,255,.36)}
+    .tag.critical{color:var(--danger)}.tag.urgent{color:var(--warning)}.tag.stable{color:var(--success)}
+    .meta,.card-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    .meta span{padding:5px 8px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid var(--line);font-size:.78rem;font-weight:800;color:var(--muted)}
+    body:not([data-theme="onyx"]) .meta span{background:rgba(255,255,255,.32)}
+    .card-actions button{min-height:32px;padding:0 10px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid var(--line);font-size:.78rem;font-weight:800}
+    body:not([data-theme="onyx"]) .card-actions button{background:rgba(255,255,255,.34)}
+    .serve-btn{width:100%}
+    .module-grid,.appointment-dashboard,.admin-console{display:grid;grid-template-columns:repeat(12,1fr);gap:18px}
+    .module-grid>.panel,.appointment-dashboard>.panel,.admin-console>.panel{grid-column:span 6}
+    .module-grid>.wide,.appointment-dashboard>.wide,.admin-console>.wide{grid-column:span 12}
+    .ticket-panel .ticket-label{color:var(--muted);font-weight:800}.ticket-panel strong{display:block;font-size:3rem;letter-spacing:-.08em}.ticket-panel p{color:var(--muted)}
+    .large-grid{grid-template-columns:repeat(3,minmax(120px,1fr))}
+    .doctor-list,.activity-log,.distribution{display:grid;gap:10px}
+    .doctor-item{display:grid;grid-template-columns:50px 1fr auto;gap:12px;align-items:center;padding:12px;border-radius:16px;background:rgba(255,255,255,.03);border:1px solid var(--line)}
+    body:not([data-theme="onyx"]) .doctor-item{background:rgba(255,255,255,.28)}
+    .avatar{width:50px;height:50px;border-radius:16px;display:grid;place-items:center;background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff;font-weight:900}
+    .doctor-item h4{margin:0}.doctor-item p{margin:0;color:var(--muted)}
+    .dist-row{display:grid;grid-template-columns:110px 1fr 42px;gap:10px;align-items:center;color:var(--muted);font-weight:800}
+    .track{height:12px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.04);border:1px solid var(--line)}
+    body:not([data-theme="onyx"]) .track{background:rgba(255,255,255,.34)}
+    .fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--primary-2),var(--accent))}
+    .log{padding:11px 12px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid var(--line);color:var(--muted)}
+    body:not([data-theme="onyx"]) .log{background:rgba(255,255,255,.24)}
+    .appointment-planner{grid-column:span 8!important}.schedule-panel{grid-column:span 4!important}.slot-panel{grid-column:span 6!important}
+    .slot-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    .slot-cell{padding:14px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.04)}
+    .slot-cell.available{color:var(--success)}.slot-cell.busy{color:var(--warning)}
+    .appointment-timeline{display:grid;gap:10px;max-height:330px;overflow:auto}
+    .timeline-item{display:grid;grid-template-columns:80px 1fr auto;gap:10px;align-items:center;padding:12px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.03)}
+    .security-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    .security-grid button{padding:14px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.04);font-weight:850}
+    .overlay{position:fixed;inset:0;z-index:200;padding:24px;background:rgba(10,18,34,.28);backdrop-filter:blur(12px);display:grid;place-items:center}
+    .overlay-card{width:min(760px,100%);max-height:min(760px,calc(100vh - 48px));overflow:auto;padding:22px;border-radius:28px}
+    .overlay-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}
+    .close-btn{width:42px;height:42px;padding:0;background:rgba(255,255,255,.04);border:1px solid var(--line)}
+    .command-list{display:grid;gap:10px;margin-top:12px}.command-list button{text-align:left;padding:14px;border-radius:16px;background:rgba(255,255,255,.04);border:1px solid var(--line)}
+    .command-list strong,.command-list small{display:block}.command-list small{color:var(--muted)}
+    #modalBody{display:grid;gap:10px;color:var(--muted);margin:18px 0}#modalBody ul{list-style:none;padding:0;display:grid;gap:8px}#modalBody li{padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid var(--line)}
+    .toast-host{position:fixed;right:24px;bottom:24px;z-index:260;display:grid;gap:10px;width:min(420px,calc(100vw - 48px))}
+    .toast{padding:14px 16px;border-radius:16px;background:linear-gradient(180deg,color-mix(in srgb,var(--glass-2) 95%,transparent),color-mix(in srgb,var(--glass) 92%,transparent));border:1px solid var(--line);border-left:5px solid var(--primary);box-shadow:var(--panel-shadow)}
+    .toast.success{border-left-color:var(--success)}.toast.warning{border-left-color:var(--warning)}.toast.error{border-left-color:var(--danger)}
+    .toast strong,.toast p{margin:0}.toast p{color:var(--muted)}
+    @media(max-width:1350px){.hero-grid{grid-template-columns:1fr}.ops-grid,.queue-lanes,.module-grid,.appointment-dashboard,.admin-console{grid-template-columns:1fr}.module-grid>.panel,.module-grid>.wide,.appointment-dashboard>.panel,.appointment-dashboard>.wide,.admin-console>.panel,.admin-console>.wide,.appointment-planner,.schedule-panel,.slot-panel{grid-column:span 1!important}}
+    @media(max-width:1080px){.topbar{grid-template-columns:1fr}.nav{justify-content:flex-start}.header-actions{flex-wrap:wrap}.search-box{min-width:0;flex:1}.metrics-grid{grid-template-columns:repeat(2,1fr)}.form-4,.form-3{grid-template-columns:1fr}.analytics-strip,.command-kpis,.appointment-stats,.admin-kpis{grid-template-columns:1fr 1fr}}
+    @media(max-width:620px){.topbar,.app-shell{padding-left:14px;padding-right:14px}.metrics-grid,.queue-lanes,.quick-grid,.large-grid,.analytics-strip,.command-kpis,.appointment-stats,.admin-kpis,.security-grid,.slot-grid{grid-template-columns:1fr}.header-actions,.action-row,.queue-filters{width:100%}.header-actions>*,.action-row>*,.queue-filters>*{flex:1}.command-orb{min-height:420px}.orb-node{width:118px}.node-1{top:24px;left:16px}.node-2{top:60px;right:16px}.node-3{bottom:52px;left:16px}.node-4{bottom:18px;right:16px}.timeline-item{grid-template-columns:1fr}}
+    @media print{.topbar,.overlay,.toast-host,.nav,.header-actions{display:none!important}.app-shell{padding:0}.glass,.lane,.patient-card{box-shadow:none!important}body{background:#fff;color:#111827}}
+  </style>
+</head>
+<body data-theme="onyx">
+  <div class="bg-gradient bg1"></div>
+  <div class="bg-gradient bg2"></div>
+  <div class="bg-gradient bg3"></div>
+  <div class="noise"></div>
+
+  <header class="topbar glass">
+    <div class="brand">
+      <div class="brand-mark"><span>+</span></div>
+      <div>
+        <p class="kicker">Automated Clinic System</p>
+        <h1>Helix GlassCare Ultimate</h1>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <button class="nav-btn active" data-nav="dashboard" type="button">Dashboard</button>
+      <button class="nav-btn" data-nav="portal" type="button">Patient Portal</button>
+      <button class="nav-btn" data-nav="reception" type="button">Reception</button>
+      <button class="nav-btn" data-nav="clinical" type="button">Clinical</button>
+      <button class="nav-btn" data-nav="appointments" type="button">Appointments</button>
+      <button class="nav-btn" data-nav="admin" type="button">Admin</button>
+    </nav>
+
+    <div class="header-actions">
+      <label class="search-box glass-soft">
+        <span>⌕</span>
+        <input id="globalSearch" type="search" placeholder="Search patients, clinics, conditions..." />
+      </label>
+      <button id="themeToggle" class="ghost-btn" type="button">Theme</button>
+      <button id="paletteOpen" class="ghost-btn" type="button">Command</button>
+    </div>
+  </header>
+
+  <main class="app-shell">
+    <section class="metrics-grid">
+      <article class="metric glass"><small>Mode</small><strong id="modeMetric">Demo</strong><span class="status-dot ok"></span></article>
+      <article class="metric glass"><small>System Tick</small><strong id="tickMetric">0</strong></article>
+      <article class="metric glass"><small>Patients Waiting</small><strong id="waitingMetric">0</strong></article>
+      <article class="metric glass"><small>Doctors Free</small><strong id="doctorsMetric">0</strong></article>
+      <article class="metric glass"><small>Served Today</small><strong id="servedMetric">0</strong></article>
+    </section>
+
+    <section id="dashboard" class="view active">
+      <section class="hero-grid">
+        <article class="glass hero-dashboard">
+          <div class="dashboard-title">
+            <div>
+              <p class="kicker">Live Operations Command</p>
+              <h2>Clinic Command Center</h2>
+            </div>
+            <span class="live-chip">Live Demo</span>
+          </div>
+
+          <div class="command-kpis">
+            <div class="mini-stat critical-stat"><span>Critical Load</span><strong id="criticalMetric">0</strong></div>
+            <div class="mini-stat"><span>Urgent Queue</span><strong id="urgentMetric">0</strong></div>
+            <div class="mini-stat"><span>Stable Queue</span><strong id="stableMetric">0</strong></div>
+            <div class="mini-stat"><span>Pending Triage</span><strong id="triageMetric">0</strong></div>
+          </div>
+
+          <div class="analytics-strip">
+            <article class="chart-card glass-soft">
+              <div class="chart-head"><div><p class="kicker">Department Pressure</p><h3>Queue Distribution</h3></div></div>
+              <div id="departmentBars" class="bar-chart"></div>
+            </article>
+
+            <article class="chart-card glass-soft">
+              <div class="chart-head"><div><p class="kicker">Today</p><h3>Throughput</h3></div><button class="soft-btn small-btn" onclick="advanceTick()">Tick</button></div>
+              <div class="spark-chart">
+                <span style="--h:42%"></span><span style="--h:58%"></span><span style="--h:35%"></span><span style="--h:72%"></span><span style="--h:62%"></span><span style="--h:90%"></span>
+              </div>
+            </article>
+
+            <article class="chart-card glass-soft">
+              <div class="chart-head"><div><p class="kicker">Capacity</p><h3>Doctor Utilization</h3></div></div>
+              <div class="donut-wrap">
+                <div class="donut" id="doctorDonut"><span id="doctorDonutText">0%</span></div>
+                <div class="donut-legend">
+                  <div><span class="dot busy"></span>Busy doctors</div>
+                  <div><span class="dot free"></span>Available doctors</div>
+                  <div id="doctorCapacityText">Capacity ready</div>
+                </div>
+              </div>
+            </article>
+          </div>
+        </article>
+
+        <article class="glass command-orb">
+          <div class="orb-shadow"></div>
+          <div class="orb-ring ring-a"></div>
+          <div class="orb-ring ring-b"></div>
+          <div class="orb-core">
+            <div><span>Helix</span><strong id="orbWaiting">0</strong><small>waiting</small></div>
+          </div>
+          <div class="orb-node node-1"><strong>Triage</strong><small id="orbTriage">0 pending</small></div>
+          <div class="orb-node node-2"><strong>Doctors</strong><small id="orbDoctors">0 free</small></div>
+          <div class="orb-node node-3"><strong>Billing</strong><small>Ready</small></div>
+          <div class="orb-node node-4"><strong>Admin</strong><small>Audit live</small></div>
+        </article>
+
+        <aside class="hero-side">
+          <article class="glass side-card">
+            <p class="kicker">Smart Insight</p>
+            <h3>Next Best Action</h3>
+            <div id="smartInsight" class="intel-box">Load demo data or register a patient to begin.</div>
+            <div class="quick-grid">
+              <button type="button" onclick="seedDemo()">Load Demo</button>
+              <button type="button" onclick="callNext()">Call Next</button>
+              <button type="button" onclick="copySummary()">Copy Summary</button>
+              <button type="button" onclick="exportJson()">Export Evidence</button>
+            </div>
+          </article>
+          <article class="glass side-card">
+            <p class="kicker">Quick Templates</p>
+            <h3>Register Faster</h3>
+            <div class="template-pills">
+              <button type="button" onclick="templatePatient('Chest pain')">Chest Pain</button>
+              <button type="button" onclick="templatePatient('Fever')">Fever</button>
+              <button type="button" onclick="templatePatient('Routine follow-up')">Follow-up</button>
+              <button type="button" onclick="templatePatient('Severe ankle pain')">Orthopedic</button>
+            </div>
+          </article>
+        </aside>
+      </section>
+    </section>
+
+    <section id="portal" class="view">
+      <section class="module-grid">
+        <article class="glass panel ticket-panel">
+          <p class="kicker">Patient Portal</p>
+          <h3>Digital Queue Ticket</h3>
+          <span class="ticket-label">Now Serving</span>
+          <strong id="nowServing">—</strong>
+          <p id="ticketHint">Patients can check their position, appointment status, lab notifications, and prescriptions.</p>
+          <div class="action-row">
+            <button class="primary-btn" onclick="checkMyTurn()">Check My Turn</button>
+            <button class="soft-btn" onclick="showModal('Lab Results', 'Patient lab panel opened.', ['CBC pending', 'X-ray report available', 'Critical alerts are highlighted'])">Lab Results</button>
+            <button class="soft-btn" onclick="showModal('Prescription Refill', 'A refill request was prepared.', ['Medication list visible', 'Doctor approval required', 'Activity is logged'])">Refill</button>
+          </div>
+        </article>
+
+        <article class="glass panel">
+          <p class="kicker">Self-Service</p>
+          <h3>Patient Services</h3>
+          <div class="quick-grid large-grid">
+            <button data-modal="Medical Records">Medical Records</button>
+            <button data-modal="Insurance Status">Insurance Status</button>
+            <button data-modal="Secure Message">Secure Message</button>
+            <button data-modal="Consent Forms">Consent Forms</button>
+            <button data-modal="Care Plan">Care Plan</button>
+            <button data-modal="Billing Summary">Billing Summary</button>
+          </div>
+        </article>
+
+        <article class="glass panel wide">
+          <p class="kicker">Portal Analytics</p>
+          <h3>Patient Journey Funnel</h3>
+          <div class="funnel">
+            <div><span>Check-in</span><b style="--w:92%"></b><em>92%</em></div>
+            <div><span>Triage</span><b style="--w:78%"></b><em>78%</em></div>
+            <div><span>Consult</span><b style="--w:64%"></b><em>64%</em></div>
+            <div><span>Checkout</span><b style="--w:50%"></b><em>50%</em></div>
+          </div>
+        </article>
+      </section>
+    </section>
+
+    <section id="reception" class="view">
+      <section class="ops-grid">
+        <article class="glass panel">
+          <div class="panel-head">
+            <div><p class="kicker">Reception Desk</p><h3>Patient Registration</h3></div>
+            <button class="soft-btn" onclick="clearRegistration()">Clear</button>
+          </div>
+          <div class="stepper">
+            <span class="active">1. Identity</span><span>2. Insurance</span><span>3. Triage</span><span>4. Queue</span>
+          </div>
+
+          <form id="registerForm" class="form">
+            <div class="form-3 form">
+              <label>Patient name<input id="patientName" placeholder="e.g., Omar Hassan" required /></label>
+              <label>Age<input id="patientAge" type="number" min="0" placeholder="21" required /></label>
+              <label>Visit type<select id="visitType"><option>Walk-in</option><option>Appointment</option><option>Emergency</option><option>Follow-up</option></select></label>
+            </div>
+            <div class="form-3 form">
+              <label>Clinic<select id="clinicSelect"></select></label>
+              <label>Condition<select id="conditionSelect"></select></label>
+              <label>Insurance<select id="insurance"><option>Verified</option><option>Pending</option><option>Self-pay</option></select></label>
+            </div>
+            <label>
+              <span class="range-head"><span>Urgency score</span><output id="urgencyOutput">5</output></span>
+              <input id="urgencyScore" type="range" min="1" max="10" value="5" />
+            </label>
+            <label>Notes<textarea id="visitNotes" placeholder="Symptoms, context, special instructions..."></textarea></label>
+            <div class="action-row">
+              <button class="primary-btn" type="submit">Register Patient</button>
+              <button class="soft-btn" type="button" onclick="verifyInsurance()">Verify Insurance</button>
+              <button class="danger-btn" type="button" onclick="addEmergency()">Emergency Intake</button>
+            </div>
+            <div id="registerNotice" class="notice">Ready for intake.</div>
+          </form>
+        </article>
+
+        <article class="glass panel">
+          <div class="panel-head">
+            <div><p class="kicker">Recent Intake</p><h3>Latest Registrations</h3></div>
+            <button class="soft-btn" onclick="seedDemo()">Seed Demo</button>
+          </div>
+          <div id="recentRegistrations" class="activity-log"></div>
+        </article>
+      </section>
+    </section>
+
+    <section id="clinical" class="view">
+      <section class="glass panel">
+        <div class="queue-head panel-head">
+          <div><p class="kicker">Clinical Queue</p><h3>Priority Lanes</h3></div>
+          <div class="queue-filters">
+            <input id="queueSearch" type="search" placeholder="Filter queue..." />
+            <select id="priorityFilter"><option value="all">All priorities</option><option value="critical">Critical</option><option value="urgent">Urgent</option><option value="stable">Stable</option></select>
+            <select id="sortMode"><option value="priority">Sort by priority</option><option value="wait">Sort by wait</option><option value="clinic">Sort by clinic</option></select>
+            <button class="primary-btn" onclick="callNext()">Call Next</button>
+            <button class="soft-btn" onclick="advanceTick()">Advance Tick</button>
+          </div>
+        </div>
+        <div id="queueLanes" class="queue-lanes"></div>
+      </section>
+    </section>
+
+    <section id="appointments" class="view">
+      <section class="appointment-dashboard">
+        <article class="glass panel wide">
+          <div class="appointment-hero">
+            <div><p class="kicker">Appointment Engine</p><h3>Scheduling, No-Show Risk, and Slot Control</h3></div>
+            <button class="primary-btn" onclick="bookAppointment()">Book Next Slot</button>
+          </div>
+          <div class="appointment-stats">
+            <div><span>Checked In</span><strong id="apptCheckedIn">0</strong></div>
+            <div><span>Open Slots</span><strong id="apptOpenSlots">9</strong></div>
+            <div><span>No-show Risk</span><strong id="apptNoShow">8%</strong></div>
+            <div><span>Urgent Holds</span><strong>1</strong></div>
+          </div>
+        </article>
+
+        <article class="glass panel appointment-planner">
+          <p class="kicker">Appointment Planner</p>
+          <h3>Clinic Slot Grid</h3>
+          <div id="slotGrid" class="slot-grid"></div>
+        </article>
+
+        <article class="glass panel schedule-panel">
+          <p class="kicker">Timeline</p>
+          <h3>Today's Schedule</h3>
+          <div id="appointmentTimeline" class="appointment-timeline"></div>
+        </article>
+
+        <article class="glass panel slot-panel">
+          <p class="kicker">Billing</p>
+          <h3>Payment Pipeline</h3>
+          <div class="billing-chart">
+            <div><span>Validated</span><b style="--w:88%"></b><em>88%</em></div>
+            <div><span>Charged</span><b style="--w:72%"></b><em>72%</em></div>
+            <div><span>Receipts</span><b style="--w:66%"></b><em>66%</em></div>
+          </div>
+        </article>
+
+        <article class="glass panel slot-panel">
+          <p class="kicker">Reminders</p>
+          <h3>Notification Center</h3>
+          <div class="quick-grid">
+            <button onclick="showModal('SMS Reminder', 'Reminder sent to selected patients.', ['Appointment time included', 'Check-in link included', 'Audit log updated'])">Send SMS</button>
+            <button onclick="showModal('Email Reminder', 'Email reminders queued.', ['Patient portal link included', 'Insurance checklist included', 'Delivery status tracked'])">Send Email</button>
+            <button onclick="showModal('No-show Risk', 'Risk model reviewed.', ['Late arrivals flagged', 'High-risk slots highlighted', 'Admin report updated'])">Risk Model</button>
+            <button onclick="showModal('Waiting List', 'Waiting list optimized.', ['Urgent patients prioritized', 'Open slot matched', 'Patient notified'])">Waiting List</button>
+          </div>
+        </article>
+      </section>
+    </section>
+
+    <section id="admin" class="view">
+      <section class="admin-console">
+        <article class="glass panel wide">
+          <div class="admin-hero">
+            <div><p class="kicker">Admin Console</p><h3>Security, Audit, Capacity, and Evidence</h3></div>
+            <div class="action-row">
+              <button class="soft-btn" onclick="printBoard()">Print Board</button>
+              <button class="primary-btn" onclick="exportJson()">Export JSON</button>
+            </div>
+          </div>
+          <div class="admin-kpis">
+            <div><span>Audit Events</span><strong id="auditCount">0</strong></div>
+            <div><span>Data State</span><strong>Local</strong></div>
+            <div><span>Access Mode</span><strong>Demo</strong></div>
+            <div><span>Evidence</span><strong>Ready</strong></div>
+          </div>
+        </article>
+
+        <article class="glass panel">
+          <p class="kicker">Capacity Planning</p>
+          <h3>Doctor Utilization</h3>
+          <div class="admin-donut-wrap">
+            <div class="donut admin-donut" id="adminDonut"><span id="adminDonutText">0%</span></div>
+            <div class="capacity-list" id="capacityList"></div>
+          </div>
+        </article>
+
+        <article class="glass panel">
+          <p class="kicker">Security</p>
+          <h3>Access & Audit</h3>
+          <div class="security-grid">
+            <button data-modal="Manage Roles">Manage Roles</button>
+            <button data-modal="Audit Log">Audit Log</button>
+            <button data-modal="Enable Two-Factor Authentication">Enable 2FA</button>
+            <button data-modal="Reset Password">Reset Password</button>
+            <button data-modal="Lock Account">Lock Account</button>
+            <button data-modal="Priority Rules">Priority Rules</button>
+          </div>
+        </article>
+
+        <article class="glass panel wide">
+          <p class="kicker">Evidence Timeline</p>
+          <h3>Activity Log</h3>
+          <div id="activityLog" class="activity-log"></div>
+        </article>
+      </section>
+    </section>
+  </main>
+
+  <div id="palette" class="overlay hidden">
+    <div class="overlay-card glass">
+      <div class="overlay-head">
+        <div><p class="kicker">Command Palette</p><h3>Run a Quick Action</h3></div>
+        <button class="close-btn" id="paletteClose" type="button">×</button>
+      </div>
+      <input id="commandSearch" type="search" placeholder="Search commands..." />
+      <div id="commandList" class="command-list"></div>
+    </div>
+  </div>
+
+  <div id="modal" class="overlay hidden">
+    <div class="overlay-card glass">
+      <div class="overlay-head">
+        <div><p class="kicker">Helix GlassCare Ultimate</p><h3 id="modalTitle">Action</h3></div>
+        <button class="close-btn" id="modalClose" type="button">×</button>
+      </div>
+      <div id="modalBody"></div>
+      <div class="action-row">
+        <button class="soft-btn" id="modalCopy" type="button">Copy Details</button>
+        <button class="primary-btn" id="modalDone" type="button">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toastHost" class="toast-host"></div>
+
+  <script>
+    const $ = selector => document.querySelector(selector);
+    const $$ = selector => [...document.querySelectorAll(selector)];
+
+    const STORAGE_KEY = 'helixGlassCareUltimateState';
+    const THEME_KEY = 'helixGlassCareUltimateTheme';
+
+    const initialState = {
+      tick: 0,
+      served: 0,
+      pendingTriage: [],
+      queues: {},
+      doctors: [],
+      nextId: 1001,
+      activity: [],
+      autoTimer: null,
+      filters: { q: '', priority: 'all', sort: 'priority' },
+      appointmentBooked: false,
+      clinics: [
+        { id: 1, name: 'Emergency', specialty: 'Emergency Medicine', conditions: [
+          { name: 'Chest Pain', urgency: 10, minutes: 45 }, { name: 'Breathing Difficulty', urgency: 10, minutes: 38 }, { name: 'Severe Bleeding', urgency: 10, minutes: 34 }
+        ]},
+        { id: 2, name: 'General Medicine', specialty: 'Primary Care', conditions: [
+          { name: 'Fever', urgency: 6, minutes: 20 }, { name: 'Cough', urgency: 4, minutes: 15 }, { name: 'Routine follow-up', urgency: 2, minutes: 10 }
+        ]},
+        { id: 3, name: 'Cardiology', specialty: 'Heart Care', conditions: [
+          { name: 'Palpitations', urgency: 7, minutes: 25 }, { name: 'High Blood Pressure', urgency: 5, minutes: 18 }, { name: 'Chest Pain', urgency: 10, minutes: 45 }
+        ]},
+        { id: 4, name: 'Orthopedics', specialty: 'Bone & Joint', conditions: [
+          { name: 'Severe ankle pain', urgency: 6, minutes: 24 }, { name: 'Fracture review', urgency: 7, minutes: 30 }, { name: 'Back pain', urgency: 4, minutes: 18 }
+        ]}
+      ]
+    };
+
+    let state = loadState();
+
+    const commandItems = [
+      { name: 'Load demo data', desc: 'Seed realistic patients, doctors, queues, and activity.', action: seedDemo },
+      { name: 'Register emergency case', desc: 'Create a critical emergency patient.', action: addEmergency },
+      { name: 'Call next patient', desc: 'Serve the highest priority patient.', action: callNext },
+      { name: 'Advance system tick', desc: 'Increase waiting times and update analytics.', action: advanceTick },
+      { name: 'Copy queue summary', desc: 'Copy current queue state.', action: copySummary },
+      { name: 'Export evidence JSON', desc: 'Download the current system evidence file.', action: exportJson },
+      { name: 'Print command board', desc: 'Print the visible board.', action: printBoard },
+      { name: 'Open admin panel', desc: 'Go to admin controls.', action: () => navigate('admin') },
+      { name: 'Open reception', desc: 'Go to registration workflow.', action: () => navigate('reception') }
+    ];
+
+    function loadState() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          return { ...structuredClone(initialState), ...parsed, autoTimer: null };
+        }
+      } catch (e) {}
+      return structuredClone(initialState);
+    }
+
+    function saveState() {
+      const copy = { ...state, autoTimer: null };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(copy));
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' }[char]));
+    }
+
+    function setText(selector, text) {
+      const el = $(selector);
+      if (el) el.textContent = text;
+    }
+
+    function totalPatients() {
+      return Object.values(state.queues).flat().length;
+    }
+
+    function priorityOf(urgency) {
+      if (urgency >= 8) return 'critical';
+      if (urgency >= 5) return 'urgent';
+      return 'stable';
+    }
+
+    function getClinic(clinicId) {
+      return state.clinics.find(c => c.id === Number(clinicId)) || state.clinics[0];
+    }
+
+    function allPatients() {
+      return Object.values(state.queues).flat();
+    }
+
+    function filteredPatients(priority) {
+      let list = allPatients();
+      const q = state.filters.q.trim().toLowerCase();
+      if (priority && priority !== 'all') list = list.filter(p => p.priority === priority);
+      if (state.filters.priority !== 'all') list = list.filter(p => p.priority === state.filters.priority);
+      if (q) list = list.filter(p =>
+        p.name.toLowerCase().includes(q) ||
+        p.condition.toLowerCase().includes(q) ||
+        p.clinicName.toLowerCase().includes(q)
+      );
+      return list.sort((a, b) => {
+        if (state.filters.sort === 'wait') return b.wait - a.wait;
+        if (state.filters.sort === 'clinic') return a.clinicName.localeCompare(b.clinicName);
+        const rank = { critical: 0, urgent: 1, stable: 2 };
+        return rank[a.priority] - rank[b.priority] || b.urgency - a.urgency || b.wait - a.wait;
+      });
+    }
+
+    function seedDemo() {
+      state = structuredClone(initialState);
+      state.doctors = [
+        { id: 1, name: 'Dr. Salma Nader', specialty: 'Emergency', available: true, load: 78 },
+        { id: 2, name: 'Dr. Kareem Youssef', specialty: 'Cardiology', available: false, load: 92 },
+        { id: 3, name: 'Dr. Nour Adel', specialty: 'General Medicine', available: true, load: 52 },
+        { id: 4, name: 'Dr. Tarek Amin', specialty: 'Orthopedics', available: true, load: 64 },
+        { id: 5, name: 'Dr. Hana Raouf', specialty: 'Pediatrics', available: false, load: 88 }
+      ];
+      state.queues = { critical: [], urgent: [], stable: [] };
+      [
+        ['Youssef Samir', 54, 1, 'Chest Pain', 10, 'Verified', 'Needs immediate ECG.'],
+        ['Mariam Ali', 31, 2, 'Fever', 6, 'Verified', 'High temperature and cough.'],
+        ['Laila Hassan', 8, 2, 'Routine follow-up', 2, 'Pending', 'Follow-up vaccination.'],
+        ['Karim Nabil', 42, 4, 'Severe ankle pain', 6, 'Self-pay', 'Sports injury.'],
+        ['Nadine Farouk', 67, 3, 'High Blood Pressure', 7, 'Verified', 'BP above normal range.'],
+        ['Omar Adel', 22, 2, 'Cough', 4, 'Verified', 'Mild respiratory symptoms.']
+      ].forEach(([name, age, clinicId, condition, urgency, insurance, notes]) => {
+        addPatient({ name, age, clinicId, condition, urgency, insurance, notes, silent: true });
+      });
+      logActivity('Demo data loaded with seeded queues, doctors, and clinics.');
+      toast('Demo loaded', 'Helix GlassCare Ultimate data is ready.', 'success');
+      saveAndRender();
+    }
+
+    function addPatient({ name, age, clinicId, condition, urgency, insurance, notes, silent = false }) {
+      const clinic = getClinic(clinicId);
+      const priority = priorityOf(Number(urgency));
+      const patient = {
+        id: `HX-${state.nextId++}`,
+        name,
+        age,
+        clinicId: Number(clinicId),
+        clinicName: clinic.name,
+        condition,
+        urgency: Number(urgency),
+        priority,
+        insurance,
+        notes,
+        wait: Math.floor(Math.random() * 18) + (priority === 'critical' ? 1 : priority === 'urgent' ? 8 : 14),
+        createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        status: 'Waiting'
+      };
+      state.queues[priority] = state.queues[priority] || [];
+      state.queues[priority].push(patient);
+      if (priority === 'critical') state.pendingTriage.push(patient.id);
+      if (!silent) logActivity(`Registered ${patient.name} as ${priority.toUpperCase()} in ${clinic.name}.`);
+      return patient;
+    }
+
+    function clearRegistration() {
+      $('#registerForm').reset();
+      $('#urgencyScore').value = 5;
+      $('#urgencyOutput').textContent = '5';
+      populateConditions();
+      updateRegisterNotice('Ready for intake.');
+    }
+
+    function verifyInsurance() {
+      const insurance = $('#insurance').value;
+      const message = insurance === 'Verified'
+        ? 'Insurance verification passed.'
+        : insurance === 'Pending'
+          ? 'Insurance needs manual review.'
+          : 'Self-pay selected; billing alert created.';
+      updateRegisterNotice(message, insurance === 'Verified' ? 'success' : '');
+      logActivity(message);
+      toast('Insurance checked', message, insurance === 'Verified' ? 'success' : 'warning');
+      saveAndRender();
+    }
+
+    function addEmergency() {
+      const patient = addPatient({
+        name: 'Emergency Case',
+        age: '—',
+        clinicId: 1,
+        condition: 'Breathing Difficulty',
+        urgency: 10,
+        insurance: 'Pending',
+        notes: 'Emergency intake created from quick action.',
+        silent: false
+      });
+      showModal('Emergency Intake', `${patient.id} created and moved to critical lane.`, [
+        'Critical priority assigned',
+        'Emergency clinic selected',
+        'Audit trail updated'
+      ]);
+      saveAndRender();
+    }
+
+    function callNext() {
+      const next = filteredPatients('all')[0];
+      if (!next) {
+        toast('Queue empty', 'No patient is waiting.', 'warning');
+        return;
+      }
+      state.queues[next.priority] = state.queues[next.priority].filter(p => p.id !== next.id);
+      state.pendingTriage = state.pendingTriage.filter(id => id !== next.id);
+      state.served += 1;
+      state.doctors = state.doctors.map((d, i) => i === 0 ? { ...d, available: false, load: Math.min(98, d.load + 8) } : d);
+      logActivity(`Called ${next.id} — ${next.name} to ${next.clinicName}.`);
+      setText('#nowServing', next.id);
+      toast('Patient called', `${next.name} is now serving.`, 'success');
+      saveAndRender();
+    }
+
+    function advanceTick() {
+      state.tick += 1;
+      Object.keys(state.queues).forEach(priority => {
+        state.queues[priority].forEach(p => { p.wait += priority === 'critical' ? 2 : priority === 'urgent' ? 4 : 5; });
+      });
+      state.doctors = state.doctors.map(d => ({ ...d, available: Math.random() > .35, load: Math.max(25, Math.min(99, d.load + Math.floor(Math.random()*15)-6)) }));
+      logActivity(`System tick advanced to ${state.tick}.`);
+      saveAndRender();
+      toast('Tick advanced', 'Waiting times and capacity updated.', 'success');
+    }
+
+    function bookAppointment() {
+      state.appointmentBooked = true;
+      logActivity('Appointment slot booked and reminders prepared.');
+      toast('Appointment booked', 'Next available slot was reserved.', 'success');
+      saveAndRender();
+    }
+
+    function checkMyTurn() {
+      const next = filteredPatients('all')[0];
+      const text = next ? `Next patient: ${next.id} — ${next.name}, estimated wait ${next.wait}m.` : 'No active queue right now.';
+      setText('#ticketHint', text);
+      toast('Turn checked', text, 'success');
+    }
+
+    function templatePatient(conditionName) {
+      navigate('reception');
+      const clinic = state.clinics.find(c => c.conditions.some(x => x.name === conditionName)) || state.clinics[1];
+      $('#patientName').value = 'Demo Patient';
+      $('#patientAge').value = conditionName === 'Routine follow-up' ? 36 : 45;
+      $('#clinicSelect').value = clinic.id;
+      populateConditions();
+      $('#conditionSelect').value = conditionName;
+      const condition = clinic.conditions.find(c => c.name === conditionName);
+      $('#urgencyScore').value = condition?.urgency || 5;
+      $('#urgencyOutput').textContent = $('#urgencyScore').value;
+      $('#visitNotes').value = `Template selected: ${conditionName}`;
+      updateRegisterNotice(`Template loaded: ${conditionName}.`);
+    }
+
+    function populateClinics() {
+      $('#clinicSelect').innerHTML = state.clinics.map(c => `<option value="${c.id}">${escapeHtml(c.name)} — ${escapeHtml(c.specialty)}</option>`).join('');
+      populateConditions();
+    }
+
+    function populateConditions() {
+      const clinic = getClinic($('#clinicSelect')?.value || 1);
+      $('#conditionSelect').innerHTML = clinic.conditions.map(c => `<option value="${escapeHtml(c.name)}" data-urgency="${c.urgency}">${escapeHtml(c.name)}</option>`).join('');
+      const first = clinic.conditions[0];
+      if (first) {
+        $('#urgencyScore').value = first.urgency;
+        $('#urgencyOutput').textContent = first.urgency;
+      }
+    }
+
+    function renderQueueLanes() {
+      const lanes = [
+        ['critical', 'Critical', 'Immediate care'],
+        ['urgent', 'Urgent', 'Prioritized'],
+        ['stable', 'Stable', 'Routine queue']
+      ];
+      $('#queueLanes').innerHTML = lanes.map(([priority, title, subtitle]) => {
+        const patients = filteredPatients(priority);
+        const cards = patients.length ? patients.map(patientCard).join('') : `<div class="empty-box">No ${priority} patients.</div>`;
+        return `
+          <section class="lane">
+            <div class="lane-top">
+              <div><h4>${title}</h4><p>${subtitle}</p></div>
+              <span class="tag ${priority}">${patients.length}</span>
+            </div>
+            <div class="lane-body">${cards}</div>
+          </section>
+        `;
+      }).join('');
+    }
+
+    function patientCard(p) {
+      return `
+        <article class="patient-card ${p.priority}">
+          <div class="patient-top">
+            <div>
+              <h5>${escapeHtml(p.name)}</h5>
+              <p>${escapeHtml(p.id)} · ${escapeHtml(p.clinicName)}</p>
+            </div>
+            <span class="tag ${p.priority}">${p.priority}</span>
+          </div>
+          <div class="meta">
+            <span>${escapeHtml(p.condition)}</span>
+            <span>Urgency ${p.urgency}/10</span>
+            <span>Wait ${p.wait}m</span>
+            <span>${escapeHtml(p.insurance)}</span>
+          </div>
+          <div class="card-actions">
+            <button onclick="openPatient('${p.id}')">Open</button>
+            <button onclick="assignDoctor('${p.id}')">Assign</button>
+            <button onclick="completeTriage('${p.id}')">Triage Done</button>
+            <button onclick="removePatient('${p.id}')">Discharge</button>
+          </div>
+        </article>
+      `;
+    }
+
+    function findPatient(id) {
+      return allPatients().find(p => p.id === id);
+    }
+
+    function openPatient(id) {
+      const p = findPatient(id);
+      if (!p) return;
+      showModal(`${p.id} — ${p.name}`, `${p.condition} in ${p.clinicName}.`, [
+        `Priority: ${p.priority.toUpperCase()}`,
+        `Urgency score: ${p.urgency}/10`,
+        `Insurance: ${p.insurance}`,
+        `Notes: ${p.notes || 'No notes'}`
+      ]);
+    }
+
+    function assignDoctor(id) {
+      const p = findPatient(id);
+      const doctor = state.doctors.find(d => d.available) || state.doctors[0];
+      if (!p || !doctor) return;
+      doctor.available = false;
+      doctor.load = Math.min(100, doctor.load + 10);
+      logActivity(`${p.id} assigned to ${doctor.name}.`);
+      toast('Doctor assigned', `${p.name} assigned to ${doctor.name}.`, 'success');
+      saveAndRender();
+    }
+
+    function completeTriage(id) {
+      state.pendingTriage = state.pendingTriage.filter(item => item !== id);
+      logActivity(`Triage completed for ${id}.`);
+      toast('Triage completed', `${id} moved to active queue.`, 'success');
+      saveAndRender();
+    }
+
+    function removePatient(id) {
+      Object.keys(state.queues).forEach(priority => {
+        state.queues[priority] = state.queues[priority].filter(p => p.id !== id);
+      });
+      state.pendingTriage = state.pendingTriage.filter(item => item !== id);
+      logActivity(`${id} discharged/removed from queue.`);
+      toast('Patient discharged', `${id} removed.`, 'success');
+      saveAndRender();
+    }
+
+    function renderDoctors() {
+      if (!state.doctors.length) {
+        state.doctors = [
+          { id: 1, name: 'Dr. Salma Nader', specialty: 'Emergency', available: true, load: 52 },
+          { id: 2, name: 'Dr. Kareem Youssef', specialty: 'Cardiology', available: true, load: 48 },
+          { id: 3, name: 'Dr. Nour Adel', specialty: 'General Medicine', available: true, load: 40 }
+        ];
+      }
+      const capacityList = $('#capacityList');
+      if (capacityList) {
+        capacityList.innerHTML = state.doctors.map(d => `
+          <div class="doctor-item">
+            <div class="avatar">${d.name.split(' ').map(x => x[0]).join('').slice(0,2)}</div>
+            <div><h4>${escapeHtml(d.name)}</h4><p>${escapeHtml(d.specialty)} · ${d.available ? 'Available' : 'Busy'}</p></div>
+            <span class="tag ${d.available ? 'stable' : 'urgent'}">${d.load}%</span>
+          </div>
+        `).join('');
+      }
+    }
+
+    function renderDashboard() {
+      const all = allPatients();
+      const counts = {
+        critical: all.filter(p => p.priority === 'critical').length,
+        urgent: all.filter(p => p.priority === 'urgent').length,
+        stable: all.filter(p => p.priority === 'stable').length
+      };
+      setText('#tickMetric', state.tick);
+      setText('#waitingMetric', all.length);
+      setText('#servedMetric', state.served);
+      setText('#criticalMetric', counts.critical);
+      setText('#urgentMetric', counts.urgent);
+      setText('#stableMetric', counts.stable);
+      setText('#triageMetric', state.pendingTriage.length);
+      setText('#orbWaiting', all.length);
+      setText('#orbTriage', `${state.pendingTriage.length} pending`);
+
+      const free = state.doctors.filter(d => d.available).length;
+      const total = state.doctors.length || 1;
+      const busyPct = Math.round(((total - free) / total) * 100);
+      setText('#doctorsMetric', free);
+      setText('#orbDoctors', `${free} free`);
+      setText('#doctorDonutText', `${busyPct}%`);
+      setText('#adminDonutText', `${busyPct}%`);
+      setText('#doctorCapacityText', `${free}/${total} doctors free`);
+      $('#doctorDonut')?.style.setProperty('--pct', `${busyPct}%`);
+      $('#adminDonut')?.style.setProperty('--pct', `${busyPct}%`);
+
+      const byClinic = {};
+      all.forEach(p => byClinic[p.clinicName] = (byClinic[p.clinicName] || 0) + 1);
+      $('#departmentBars').innerHTML = state.clinics.map(c => {
+        const value = byClinic[c.name] || 0;
+        const pct = Math.min(100, value * 18);
+        return `<div class="bar-row"><span>${escapeHtml(c.name)}</span><div><b style="--w:${pct}%"></b></div><em>${value}</em></div>`;
+      }).join('');
+
+      const insight = counts.critical > 0
+        ? `Critical queue has ${counts.critical} patient(s). Call next patient or assign an emergency doctor.`
+        : all.length
+          ? `Queue is stable. Average wait is ${Math.round(all.reduce((s,p)=>s+p.wait,0)/all.length)} minutes.`
+          : 'Load demo data or register a patient to begin.';
+      setText('#smartInsight', insight);
+    }
+
+    function renderRecent() {
+      const recent = allPatients().slice(-6).reverse();
+      $('#recentRegistrations').innerHTML = recent.length ? recent.map(p => `
+        <div class="log"><strong>${escapeHtml(p.id)} · ${escapeHtml(p.name)}</strong><br>${escapeHtml(p.condition)} · ${escapeHtml(p.priority)} · ${escapeHtml(p.createdAt)}</div>
+      `).join('') : '<div class="empty-box">No registrations yet.</div>';
+    }
+
+    function renderAppointments() {
+      const slots = [
+        ['09:15', 'Available', 'available'], ['10:00', 'Booked', 'busy'], ['10:45', 'Available', 'available'],
+        ['11:30', 'Urgent hold', 'busy'], ['13:00', 'Available', 'available'], ['14:15', 'Booked', 'busy'],
+        ['15:00', 'Available', 'available'], ['16:30', 'Available', 'available'], ['17:00', 'Closed', 'busy']
+      ];
+      $('#slotGrid').innerHTML = slots.map(([time, label, cls]) => `<div class="slot-cell ${cls}"><strong>${time}</strong><br><span>${label}</span></div>`).join('');
+      $('#appointmentTimeline').innerHTML = [
+        ['09:15', 'Mariam Ali', 'General Medicine'],
+        ['10:00', 'Nadine Farouk', 'Cardiology'],
+        ['11:30', 'Emergency hold', 'Emergency'],
+        ['14:15', 'Karim Nabil', 'Orthopedics']
+      ].map(([time, patient, clinic]) => `<div class="timeline-item"><strong>${time}</strong><span>${patient}</span><span class="tag">${clinic}</span></div>`).join('');
+
+      setText('#apptCheckedIn', Math.min(12, state.served + allPatients().length));
+      setText('#apptOpenSlots', Math.max(2, 9 - (state.appointmentBooked ? 1 : 0) - state.served));
+      setText('#apptNoShow', `${Math.min(18, 8 + state.pendingTriage.length * 2)}%`);
+    }
+
+    function renderActivity() {
+      const log = $('#activityLog');
+      if (!log) return;
+      log.innerHTML = state.activity.length ? state.activity.slice(-18).reverse().map(item =>
+        `<div class="log"><strong>${escapeHtml(item.time)}</strong><br>${escapeHtml(item.text)}</div>`
+      ).join('') : '<div class="empty-box">No activity yet.</div>';
+      setText('#auditCount', state.activity.length);
+    }
+
+    function updateRegisterNotice(message, type = '') {
+      const el = $('#registerNotice');
+      el.textContent = message;
+      el.className = `notice ${type}`.trim();
+    }
+
+    function logActivity(text) {
+      state.activity.push({ time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), text });
+      if (state.activity.length > 80) state.activity.shift();
+    }
+
+    function saveAndRender(withSave = true) {
+      renderAll();
+      if (withSave) saveState();
+      else saveState();
+    }
+
+    function renderAll() {
+      renderDashboard();
+      renderQueueLanes();
+      renderRecent();
+      renderDoctors();
+      renderAppointments();
+      renderActivity();
+    }
+
+    function copySummary() {
+      const text = [
+        'Helix GlassCare Ultimate Summary',
+        `Tick: ${state.tick}`,
+        `Waiting: ${totalPatients()}`,
+        `Pending triage: ${state.pendingTriage.length}`,
+        `Doctors free: ${state.doctors.filter(d => d.available).length}`,
+        `Served: ${state.served}`
+      ].join('\n');
+      navigator.clipboard?.writeText(text)
+        .then(() => toast('Summary copied', 'The current queue summary was copied.', 'success'))
+        .catch(() => toast('Copy blocked', 'Clipboard access was unavailable.', 'warning'));
+    }
+
+    function exportJson() {
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        tick: state.tick,
+        served: state.served,
+        pendingTriage: state.pendingTriage,
+        queues: state.queues,
+        doctors: state.doctors,
+        activity: state.activity,
+        clinics: state.clinics
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'helix-glasscare-prime-evidence.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      toast('Evidence exported', 'The JSON evidence file was downloaded.', 'success');
+      logActivity('Evidence JSON exported.');
+      saveState();
+      renderAll();
+    }
+
+    function printBoard() {
+      window.print();
+    }
+
+    function openPalette() {
+      $('#palette').classList.remove('hidden');
+      $('#commandSearch').value = '';
+      renderCommandPalette(commandItems);
+      $('#commandSearch').focus();
+    }
+
+    function closePalette() {
+      $('#palette').classList.add('hidden');
+    }
+
+    function renderCommandPalette(items) {
+      $('#commandList').innerHTML = items.map(item => {
+        const index = commandItems.findIndex(master => master.name === item.name);
+        return `<button type="button" data-command-index="${index}"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.desc)}</small></button>`;
+      }).join('');
+    }
+
+    function showModal(title, intro, bullets = ['Workflow ready in the frontend demo', 'Can be connected to backend logic', 'Action recorded in activity log']) {
+      $('#modalTitle').textContent = title;
+      $('#modalBody').innerHTML = `<p><strong>${escapeHtml(intro)}</strong></p><ul>${bullets.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
+      $('#modal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+      $('#modal').classList.add('hidden');
+    }
+
+    function copyModal() {
+      const text = `${$('#modalTitle').textContent}\n\n${$('#modalBody').innerText}`;
+      navigator.clipboard?.writeText(text)
+        .then(() => toast('Modal copied', 'The modal details were copied.', 'success'))
+        .catch(() => toast('Copy blocked', 'Clipboard access was unavailable.', 'warning'));
+    }
+
+    function toast(title, message, type = 'success') {
+      const host = $('#toastHost');
+      const item = document.createElement('div');
+      item.className = `toast ${type}`;
+      item.innerHTML = `<strong>${escapeHtml(title)}</strong><p>${escapeHtml(message)}</p>`;
+      host.appendChild(item);
+      setTimeout(() => {
+        item.style.opacity = '0';
+        setTimeout(() => item.remove(), 250);
+      }, 3800);
+    }
+
+    function navigate(viewId) {
+      $$('.view').forEach(view => view.classList.toggle('active', view.id === viewId));
+      $$('.nav-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.nav === viewId));
+      location.hash = viewId;
+      renderAll();
+    }
+
+    function initEvents() {
+      $$('.nav-btn').forEach(btn => btn.addEventListener('click', () => navigate(btn.dataset.nav)));
+
+      $('#themeToggle').addEventListener('click', () => {
+        const themes = ['onyx', 'ice', 'rose', 'emerald'];
+        const current = document.body.dataset.theme || 'onyx';
+        const next = themes[(themes.indexOf(current) + 1) % themes.length];
+        document.body.dataset.theme = next;
+        localStorage.setItem(THEME_KEY, next);
+        toast('Theme changed', `Theme set to ${next}.`, 'success');
+      });
+
+      $('#paletteOpen').addEventListener('click', openPalette);
+      $('#paletteClose').addEventListener('click', closePalette);
+      $('#commandSearch').addEventListener('input', event => {
+        const q = event.target.value.trim().toLowerCase();
+        renderCommandPalette(commandItems.filter(item => item.name.toLowerCase().includes(q) || item.desc.toLowerCase().includes(q)));
+      });
+      $('#commandList').addEventListener('click', event => {
+        const button = event.target.closest('button[data-command-index]');
+        if (!button) return;
+        const item = commandItems[Number(button.dataset.commandIndex)];
+        closePalette();
+        item.action();
+      });
+
+      $('#modalClose').addEventListener('click', closeModal);
+      $('#modalDone').addEventListener('click', closeModal);
+      $('#modalCopy').addEventListener('click', copyModal);
+      $('#modal').addEventListener('click', event => { if (event.target.id === 'modal') closeModal(); });
+      $('#palette').addEventListener('click', event => { if (event.target.id === 'palette') closePalette(); });
+
+      $('#clinicSelect').addEventListener('change', populateConditions);
+      $('#conditionSelect').addEventListener('change', () => {
+        const selected = $('#conditionSelect').selectedOptions[0];
+        if (selected?.dataset.urgency) {
+          $('#urgencyScore').value = selected.dataset.urgency;
+          $('#urgencyOutput').textContent = selected.dataset.urgency;
+        }
+      });
+      $('#urgencyScore').addEventListener('input', event => $('#urgencyOutput').textContent = event.target.value);
+
+      $('#registerForm').addEventListener('submit', event => {
+        event.preventDefault();
+        const patient = addPatient({
+          name: $('#patientName').value.trim(),
+          age: $('#patientAge').value.trim(),
+          clinicId: $('#clinicSelect').value,
+          condition: $('#conditionSelect').value,
+          urgency: $('#urgencyScore').value,
+          insurance: $('#insurance').value,
+          notes: $('#visitNotes').value.trim()
+        });
+        updateRegisterNotice(`${patient.name} registered as ${patient.priority.toUpperCase()} in ${patient.clinicName}.`, 'success');
+        toast('Patient registered', `${patient.id} added to ${patient.priority} lane.`, 'success');
+        saveAndRender();
+      });
+
+      $('#queueSearch').addEventListener('input', event => {
+        state.filters.q = event.target.value;
+        renderQueueLanes();
+      });
+      $('#priorityFilter').addEventListener('change', event => {
+        state.filters.priority = event.target.value;
+        saveAndRender();
+      });
+      $('#sortMode').addEventListener('change', event => {
+        state.filters.sort = event.target.value;
+        saveAndRender();
+      });
+      $('#globalSearch').addEventListener('input', event => {
+        state.filters.q = event.target.value;
+        $('#queueSearch').value = event.target.value;
+        renderQueueLanes();
+      });
+
+      $$('[data-modal]').forEach(button => button.addEventListener('click', () => {
+        showModal(button.dataset.modal, `${button.dataset.modal} module opened in the frontend demo.`);
+        logActivity(`${button.dataset.modal} module opened.`);
+        saveAndRender();
+      }));
+
+      window.addEventListener('keydown', event => {
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+          event.preventDefault();
+          openPalette();
+        }
+        if (event.key === 'Escape') {
+          closeModal();
+          closePalette();
+        }
+      });
+    }
+
+    function init() {
+      const savedTheme = localStorage.getItem(THEME_KEY);
+      if (savedTheme) document.body.dataset.theme = savedTheme;
+      populateClinics();
+      if (!state.doctors.length) {
+        state.doctors = [
+          { id: 1, name: 'Dr. Salma Nader', specialty: 'Emergency', available: true, load: 52 },
+          { id: 2, name: 'Dr. Kareem Youssef', specialty: 'Cardiology', available: true, load: 48 },
+          { id: 3, name: 'Dr. Nour Adel', specialty: 'General Medicine', available: true, load: 40 }
+        ];
+      }
+      initEvents();
+      const hash = location.hash.replace('#', '');
+      if (hash && document.getElementById(hash)) navigate(hash);
+      renderAll();
+    }
+
+    init();
+  </script>
+</body>
+</html>
