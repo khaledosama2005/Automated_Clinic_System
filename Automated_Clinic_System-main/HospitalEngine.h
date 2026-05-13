@@ -8,6 +8,7 @@
 
 #include "Clinic.h"
 #include "SimpleJson.h"
+#include "Trie.h"                          // O(m) prefix search for patient names
 
 // ============================================================
 // HospitalEngine
@@ -44,6 +45,11 @@ private:
     // Ownership of all patients (so pointers stay valid across queues)
     std::unordered_map<int, std::unique_ptr<Patient>> patients;
 
+    // Trie for O(m) receptionist name-prefix search.
+    // Mirrors the patients map — every live (non-served) patient
+    // is inserted here on creation and removed on finish_next.
+    Trie patientTrie;
+
     // Helpers
     Clinic* findClinic(int clinicId) const;
     void ensureDefaultSetup();
@@ -57,6 +63,7 @@ private:
     SimpleJson::Value api_get_state() const; // queues + clinics + symptoms
     SimpleJson::Value api_add_patient(const SimpleJson::Value& data);
     SimpleJson::Value api_add_pending_patient(const SimpleJson::Value& data);
+    SimpleJson::Value api_search_patients(const SimpleJson::Value& data) const;
 
     // Admin actions
     SimpleJson::Value api_admin_add_clinic(const SimpleJson::Value& data);
@@ -72,4 +79,3 @@ private:
 };
 
 #endif
-

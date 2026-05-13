@@ -17,14 +17,14 @@
 // patients in state.json costs 200 comparisons every time the
 // receptionist types a letter.
 // A Trie descends exactly m nodes to reach the prefix node,
-// then collects every Patient* stored beneath it.  The cost
+// then collects every Patient* stored beneath it. The cost
 // is O(m + k) where k is the number of matches — completely
 // independent of how many patients are registered.
 //
 // Design:
 //   - Each TrieNode holds 26 children (a–z only; names are
 //     lower-cased on insert/search so case is irrelevant).
-//   - A node can be a "terminal" for multiple patients
+//   - A node can be a terminal for multiple patients
 //     (two patients can share a name, so we store a
 //     vector<Patient*> rather than a single pointer).
 //   - The Trie does NOT own Patient* memory —
@@ -36,7 +36,7 @@
 
 // ---- TrieNode -----------------------------------------------
 struct TrieNode {
-    TrieNode*           children[26];
+    TrieNode*             children[26];
     std::vector<Patient*> patients; // non-owning; patients whose full name ends here
 
     TrieNode() {
@@ -65,18 +65,17 @@ public:
 
     // ---- Insert ---------------------------------------------
     // Inserts p under its lower-cased name.
-    // Non-alpha characters (spaces, digits) are kept so that
-    // "Sara Ahmed" is a valid key — they map to the node's
-    // raw char value rather than the a-z slot, which is fine
-    // since we handle them in the index function below.
+    // Non-alpha characters (spaces, hyphens) are skipped during
+    // descent via charIndex() returning -1, so "Sara Ahmed" and
+    // "SaraAhmed" land on the same terminal node.
     // O(m) where m = name length.
     void insert(Patient* p) {
         if (!p) return;
         std::string key = normalize(p->getName());
-        TrieNode* cur   = root;
+        TrieNode*   cur = root;
         for (char c : key) {
             int idx = charIndex(c);
-            if (idx < 0) continue;          // skip characters outside a-z
+            if (idx < 0) continue;          // skip spaces and non-alpha chars
             if (!cur->children[idx])
                 cur->children[idx] = new TrieNode();
             cur = cur->children[idx];
@@ -87,8 +86,9 @@ public:
 
     // ---- Remove ---------------------------------------------
     // Removes exactly one entry for p (matched by pointer).
-    // Leaves the trie structure intact so other patients sharing
-    // a name prefix are unaffected.
+    // Leaves trie structure intact so other patients sharing
+    // a name prefix are unaffected. Prunes empty nodes on
+    // the way back up to keep memory clean.
     // O(m).
     bool remove(Patient* p) {
         if (!p) return false;
@@ -96,14 +96,25 @@ public:
         return removeHelper(root, key, 0, p);
     }
 
+    // ---- Clear ----------------------------------------------
+    // Wipes the entire trie and resets the counter.
+    // Called by HospitalEngine::reset() to stay in sync
+    // with the patient map being cleared.
+    // O(n) — same cost as the destructor.
+    void clear() {
+        delete root;
+        root          = new TrieNode();
+        totalInserted = 0;
+    }
+
     // ---- Prefix search --------------------------------------
     // Returns all Patient* whose names start with the given prefix.
     // O(m + k) — m to reach the prefix node, k to collect matches.
     std::vector<Patient*> searchPrefix(const std::string& prefix) const {
-        std::string key = normalize(prefix);
-        TrieNode* node  = findNode(key);
+        std::string           key  = normalize(prefix);
+        TrieNode*             node = findNode(key);
         std::vector<Patient*> results;
-        if (!node) return results;          // prefix not found
+        if (!node) return results;          // prefix not in trie
         collect(node, results);
         return results;
     }
@@ -112,8 +123,8 @@ public:
     // Returns all patients registered under exactly this name.
     // O(m).
     std::vector<Patient*> searchExact(const std::string& name) const {
-        std::string key = normalize(name);
-        TrieNode* node  = findNode(key);
+        std::string key  = normalize(name);
+        TrieNode*   node = findNode(key);
         if (!node) return {};
         return node->patients;              // may be empty if name is only a prefix
     }
@@ -139,8 +150,7 @@ private:
 
     // ---- Helpers --------------------------------------------
 
-    // Lower-case the string; non-alpha chars are kept as-is so
-    // that spaces in "Sara Ahmed" don't break prefix matching.
+    // Lower-case the string so search is case-insensitive.
     static std::string normalize(const std::string& s) {
         std::string out;
         out.reserve(s.size());
@@ -149,17 +159,12 @@ private:
         return out;
     }
 
-    // Maps a-z → 0-25; returns -1 for everything else.
-    // Non-alpha characters (spaces, hyphens) are skipped during
-    // traversal so "sara ahmed" and "saraahmed" are different keys
-    // only in that the space node exists between them.
-    // We keep spaces: charIndex(' ') returns -1 so spaces are
-    // skipped during descent, which means "sara " and "sara" land
-    // on the same terminal node.  This is intentional — receptionists
-    // don't type trailing spaces.
+    // Maps a–z → 0–25; returns -1 for everything else (spaces,
+    // digits, hyphens). Returning -1 causes the caller to skip
+    // that character, so "sara ahmed" and "saraahmed" are the
+    // same key — receptionists don't type internal spaces.
     static int charIndex(char c) {
         if (c >= 'a' && c <= 'z') return c - 'a';
-        // treat space as a separator we skip, not a node
         return -1;
     }
 
@@ -184,17 +189,17 @@ private:
             collect(node->children[i], out);
     }
 
-    // Recursive remove: walks to terminal, erases the pointer, prunes
-    // empty nodes on the way back up.
+    // Recursive remove: walks to terminal, erases the pointer,
+    // prunes empty nodes on the way back up.
     bool removeHelper(TrieNode* node, const std::string& key, int depth, Patient* target) {
         if (!node) return false;
 
-        // Skip non-alpha characters the same way insert does
+        // Skip non-alpha chars the same way insert does
         while (depth < (int)key.size() && charIndex(key[depth]) < 0)
             ++depth;
 
         if (depth == (int)key.size()) {
-            // At the terminal node — remove the matching pointer
+            // At the terminal node — erase the matching pointer
             auto& vec = node->patients;
             auto  it  = std::find(vec.begin(), vec.end(), target);
             if (it == vec.end()) return false;

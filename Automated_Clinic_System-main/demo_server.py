@@ -11,6 +11,7 @@ API:
   GET  /api/status
   GET  /api/clinics
   GET  /api/state
+  GET  /api/search?q=<prefix>   <- Trie prefix search
   POST /api/add_patient
   POST /api/add_pending_patient
   POST /api/reset
@@ -31,7 +32,7 @@ from __future__ import annotations
 import json
 import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 
 from hospital_backend.bridge import run_command, diagnose
 
@@ -97,7 +98,8 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        path = urlparse(self.path).path
+        parsed = urlparse(self.path)
+        path   = parsed.path
 
         if path == "/" or path == "/demo":
             return _send_file(self, os.path.join(DEMO_DIR, "index.html"))
@@ -119,6 +121,15 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/state":
             return _send_json(self, run_command("get_state"))
 
+        # Trie prefix search — GET /api/search?q=sara
+        # Passes the query string directly to the C++ engine's
+        # search_patients action, which runs in O(m + k).
+        if path == "/api/search":
+            query = parse_qs(parsed.query).get("q", [""])[0].strip()
+            if not query:
+                return _send_json(self, {"status": "error", "message": "q parameter is required"}, 400)
+            return _send_json(self, run_command("search_patients", {"query": query}))
+
         self.send_response(404)
         self.end_headers()
 
@@ -132,7 +143,7 @@ class Handler(BaseHTTPRequestHandler):
             return _send_json(self, run_command("add_pending_patient", data))
         if path == "/api/reset":
             return _send_json(self, run_command("reset", {}))
-        
+
         # Admin
         if path == "/api/admin/add_clinic":
             return _send_json(self, run_command("admin_add_clinic", data))
@@ -166,4 +177,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

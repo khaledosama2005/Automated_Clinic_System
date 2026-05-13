@@ -28,26 +28,11 @@
               Phone number
               <input id="loginPhone" placeholder="e.g. 01012345678" autocomplete="off" />
             </label>
-            <label>
-              Role
-              <select id="loginRole">
-                <option value="patient">Patient</option>
-                <option value="doctor">Doctor</option>
-                <option value="receptionist">Receptionist</option>
-                <option value="admin">Admin</option>
-              </select>
-            </label>
-            <div id="staffPinWrap" style="display:none">
-              <label>
-                Staff PIN
-                <input id="loginPin" type="password" placeholder="Enter staff PIN" autocomplete="off" />
-              </label>
-            </div>
             <button id="btnLogin" class="btn btnPrimary btnFull">Sign in</button>
           </div>
 
           <p class="muted small">
-            Staff PINs: Doctor → <code>doc123</code> &nbsp;|&nbsp; Receptionist → <code>rec123</code> &nbsp;|&nbsp; Admin → <code>admin</code>
+            Admin rule: if <code>Name == "Admin"</code> and phone is empty → admin dashboard.
           </p>
           <div id="loginError" class="alert" style="display:none"></div>
         </section>
@@ -72,11 +57,9 @@
         </header>
 
         <main class="grid">
-          <!-- ============================================================ -->
-          <!-- PATIENT VIEW                                                  -->
-          <!-- ============================================================ -->
+          <!-- Patient view -->
           <section class="card" id="patientCard">
-            <h2>🏥 Patient Registration</h2>
+            <h2>Patient</h2>
             <div class="form">
               <label>
                 Choose clinic
@@ -105,79 +88,9 @@
             </div>
           </section>
 
-          <!-- ============================================================ -->
-          <!-- DOCTOR VIEW                                                   -->
-          <!-- ============================================================ -->
-          <section class="card" id="doctorCard">
-            <h2>🩺 Doctor Dashboard</h2>
-            <p class="muted small" style="margin:0 0 12px">Press <strong>Finish Patient</strong> to complete the highest-priority patient in a clinic queue.</p>
-
-            <div id="doctorClinicList" class="doctorClinics"></div>
-          </section>
-
-          <!-- ============================================================ -->
-          <!-- RECEPTIONIST VIEW                                             -->
-          <!-- ============================================================ -->
-          <section class="card cardWide" id="receptionistCard">
-            <h2>📋 Receptionist — Triage Pending Patients</h2>
-
-            <div class="grid2">
-              <!-- Left: pending patient info -->
-              <div class="subcard">
-                <h3>Next Pending Patient</h3>
-                <div class="row" style="margin-bottom:8px">
-                  <label class="inline">
-                    Select patient
-                    <select id="pendingSelect"></select>
-                  </label>
-                </div>
-                <div class="muted small" id="pendingDetails" style="margin-top:6px; padding:8px; background:rgba(255,255,255,0.03); border-radius:8px; min-height:32px"></div>
-                <div id="pendingCount" class="muted small" style="margin-top:6px"></div>
-              </div>
-
-              <!-- Right: triage controls -->
-              <div class="subcard">
-                <h3>Assign Urgency &amp; Route</h3>
-                <div class="form formSingle" style="gap:8px">
-                  <label>
-                    Urgency level
-                    <select id="pendingUrgency">
-                      <option value="1">1 - Elective</option>
-                      <option value="2">2 - Non-Urgent</option>
-                      <option value="3" selected>3 - Semi-Urgent</option>
-                      <option value="4">4 - Urgent</option>
-                      <option value="5">5 - Critical</option>
-                    </select>
-                  </label>
-                  <label>
-                    Estimated treatment (minutes)
-                    <input id="pendingEst" type="number" min="1" value="20" />
-                  </label>
-                  <label>
-                    Route to clinic
-                    <select id="pendingClinic"></select>
-                  </label>
-                  <label class="checkRow">
-                    <input id="pendingSave" type="checkbox" />
-                    <span>Save this diagnosis for future auto-use</span>
-                  </label>
-                  <div id="pendingSaveNameWrap" style="display:none">
-                    <label>
-                      Diagnosis label (to save)
-                      <input id="pendingSaveName" placeholder="e.g. Migraine, Rash, Fracture" />
-                    </label>
-                  </div>
-                  <button id="btnTriagePending" class="btn btnPrimary">Triage &amp; Route Patient</button>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <!-- ============================================================ -->
-          <!-- ADMIN VIEW                                                    -->
-          <!-- ============================================================ -->
+          <!-- Admin view -->
           <section class="card" id="adminCard">
-            <h2>⚙️ Admin Dashboard</h2>
+            <h2>Admin</h2>
 
             <div class="grid2">
               <div class="subcard">
@@ -228,17 +141,17 @@
               <button id="btnFinishNext" class="btn btnPrimary">Finish next</button>
             </div>
 
-            <!-- Admin triage panel (same as receptionist for completeness) -->
+            <!-- Triage -->
             <div style="margin-top:14px" class="subcard">
               <h3>Pending triage (Other symptoms)</h3>
               <div class="row">
                 <label class="inline">
                   Next pending
-                  <select id="adminPendingSelect"></select>
+                  <select id="pendingSelect"></select>
                 </label>
                 <label class="inline">
                   Severity
-                  <select id="adminPendingUrgency">
+                  <select id="pendingUrgency">
                     <option value="1">1 - Elective</option>
                     <option value="2">2 - Non-Urgent</option>
                     <option value="3" selected>3 - Semi-Urgent</option>
@@ -248,21 +161,34 @@
                 </label>
                 <label class="inline">
                   Est. minutes
-                  <input id="adminPendingEst" type="number" min="1" value="20" style="max-width:110px" />
+                  <input id="pendingEst" type="number" min="1" value="20" style="max-width:110px" />
                 </label>
                 <label class="inline">
                   Route clinic
-                  <select id="adminPendingClinic"></select>
+                  <select id="pendingClinic"></select>
                 </label>
-                <button id="btnAdminTriagePending" class="btn btnPrimary">Triage</button>
+                <button id="btnTriagePending" class="btn btnPrimary">Triage</button>
               </div>
-              <div class="muted small" id="adminPendingDetails" style="margin-top:8px"></div>
+              <div class="muted small" id="pendingDetails" style="margin-top:8px"></div>
+            </div>
+
+            <!-- Patient search (Trie) -->
+            <div style="margin-top:14px" class="subcard">
+              <h3>Search patients by name</h3>
+              <p class="muted small" style="margin:0 0 8px">
+                O(m) Trie prefix search — speed is independent of total patient count.
+              </p>
+              <div class="row">
+                <input id="searchInput"
+                       placeholder="Type a name prefix, e.g. &quot;sar&quot;"
+                       style="flex:1" />
+                <button id="btnSearch" class="btn btnPrimary">Search</button>
+              </div>
+              <div id="searchResults" style="margin-top:10px"></div>
             </div>
           </section>
 
-          <!-- ============================================================ -->
-          <!-- QUEUE VIEWER (visible to all roles)                           -->
-          <!-- ============================================================ -->
+          <!-- Simple readable state -->
           <section class="card cardWide">
             <div class="row" style="justify-content:space-between">
               <h2 style="margin:0">Queues</h2>

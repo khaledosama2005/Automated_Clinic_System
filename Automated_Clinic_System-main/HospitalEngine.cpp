@@ -98,11 +98,12 @@ bool HospitalEngine::save(std::string& error) const {
 bool HospitalEngine::reset(std::string& error) {
     (void)error;
     nextPatientId = 1;
-    nextClinicId = 4;
-    arrivalSeq = 0;
+    nextClinicId  = 4;
+    arrivalSeq    = 0;
     patients.clear();
     clinics.clear();
     pendingIds.clear();
+    patientTrie.clear();                   // keep trie in sync with patient map
     ensureDefaultSetup();
     return save(error);
 }
@@ -122,18 +123,19 @@ Value HospitalEngine::err(const std::string& message) {
 }
 
 Value HospitalEngine::handle(const std::string& action, const Value& data) {
-    if (action == "get_clinics") return ok(api_get_clinics());
-    if (action == "get_state") return ok(api_get_state());
+    if (action == "get_clinics")          return ok(api_get_clinics());
+    if (action == "get_state")            return ok(api_get_state());
     // Backward-compat with older UI/bridge naming
-    if (action == "get_queue_state") return ok(api_get_state());
-    if (action == "get_stats") return ok(api_get_state());
-    if (action == "add_patient") return api_add_patient(data);
-    if (action == "add_pending_patient") return api_add_pending_patient(data);
-    if (action == "admin_add_clinic") return api_admin_add_clinic(data);
-    if (action == "admin_remove_clinic") return api_admin_remove_clinic(data);
-    if (action == "admin_add_symptom") return api_admin_add_symptom(data);
+    if (action == "get_queue_state")      return ok(api_get_state());
+    if (action == "get_stats")            return ok(api_get_state());
+    if (action == "add_patient")          return api_add_patient(data);
+    if (action == "add_pending_patient")  return api_add_pending_patient(data);
+    if (action == "search_patients")      return api_search_patients(data);
+    if (action == "admin_add_clinic")     return api_admin_add_clinic(data);
+    if (action == "admin_remove_clinic")  return api_admin_remove_clinic(data);
+    if (action == "admin_add_symptom")    return api_admin_add_symptom(data);
     if (action == "admin_remove_symptom") return api_admin_remove_symptom(data);
-    if (action == "admin_finish_next") return api_admin_finish_next(data);
+    if (action == "admin_finish_next")    return api_admin_finish_next(data);
     if (action == "admin_triage_pending") return api_admin_triage_pending(data);
     if (action == "reset") {
         std::string e;
@@ -219,21 +221,58 @@ Value HospitalEngine::api_get_state() const {
     });
 }
 
+// ---------------- API: search ----------------
+
+// Returns all patients whose name starts with the given prefix.
+// Cost: O(m + k) where m = prefix length, k = number of matches.
+// The linear-scan alternative would be O(n) per keystroke.
+Value HospitalEngine::api_search_patients(const SimpleJson::Value& data) const {
+    const Value* queryV = data.get("query");
+    if (!queryV || !queryV->isString())
+        return err("search_patients requires {query: \"<prefix>\"}");
+
+    std::string prefix = queryV->asString();
+    if (prefix.empty())
+        return err("query must not be empty");
+
+    auto matches = patientTrie.searchPrefix(prefix);
+
+    Array arr;
+    for (Patient* p : matches) {
+        if (!p) continue;
+        arr.push_back(SimpleJson::object({
+            {"id",            p->getId()},
+            {"name",          p->getName()},
+            {"phone",         p->getPhone()},
+            {"clinicId",      p->getClinicId()},
+            {"urgencyName",   p->getCondition().category.name},
+            {"priorityScore", p->getPriorityScore()},
+            {"isPending",     p->isPending()}
+        }));
+    }
+
+    return ok(SimpleJson::object({
+        {"query",   prefix},
+        {"count",   (int)arr.size()},
+        {"results", Value(std::move(arr))}
+    }));
+}
+
 // ---------------- API: mutations ----------------
 
 Value HospitalEngine::api_add_patient(const Value& data) {
-    const Value* nameV = data.get("name");
-    const Value* clinicV = data.get("clinicId");
+    const Value* nameV      = data.get("name");
+    const Value* clinicV    = data.get("clinicId");
     // Backward-compat: older UIs used conditionIndex
     const Value* symptomIdxV = data.get("symptomIndex");
     if (!symptomIdxV) symptomIdxV = data.get("conditionIndex");
-    const Value* phoneV = data.get("phone");
+    const Value* phoneV     = data.get("phone");
     if (!nameV || !clinicV || !symptomIdxV || !nameV->isString()) {
         return err("add_patient requires {name, phone?, clinicId, symptomIndex}");
     }
 
-    int clinicId = clinicV->asInt(-1);
-    int symptomIdx  = symptomIdxV->asInt(-1);
+    int clinicId   = clinicV->asInt(-1);
+    int symptomIdx = symptomIdxV->asInt(-1);
     Clinic* clinic = findClinic(clinicId);
     if (!clinic) return err("Invalid clinicId");
 
@@ -248,23 +287,24 @@ Value HospitalEngine::api_add_patient(const Value& data) {
     Patient* raw = p.get();
     patients.emplace(id, std::move(p));
     clinic->enqueuePatient(raw);
+    patientTrie.insert(raw);               // register in trie for prefix search
 
     std::string e;
     if (!save(e)) return err(e);
 
     return ok(SimpleJson::object({
-        {"patientId", id},
-        {"queued", true},
-        {"clinicId", clinicId},
+        {"patientId",    id},
+        {"queued",       true},
+        {"clinicId",     clinicId},
         {"priorityScore", raw->getPriorityScore()}
     }));
 }
 
 Value HospitalEngine::api_add_pending_patient(const Value& data) {
-    const Value* nameV = data.get("name");
-    const Value* clinicV = data.get("clinicId");
-    const Value* phoneV = data.get("phone");
-    const Value* symptomsV = data.get("symptomsText");
+    const Value* nameV      = data.get("name");
+    const Value* clinicV    = data.get("clinicId");
+    const Value* phoneV     = data.get("phone");
+    const Value* symptomsV  = data.get("symptomsText");
 
     if (!nameV || !clinicV || !nameV->isString()) {
         return err("add_pending_patient requires {name, phone?, clinicId, symptomsText}");
@@ -284,16 +324,18 @@ Value HospitalEngine::api_add_pending_patient(const Value& data) {
     // pending condition until admin triage
     p->setCondition(Condition("Other (pending triage)", UrgencyLevel::PENDING, 0));
 
+    Patient* raw = p.get();
     patients.emplace(id, std::move(p));
     pendingIds.push_back(id);
+    patientTrie.insert(raw);               // pending patients are searchable too
 
     std::string e;
     if (!save(e)) return err(e);
 
     return ok(SimpleJson::object({
         {"patientId", id},
-        {"pending", true},
-        {"clinicId", clinicId}
+        {"pending",   true},
+        {"clinicId",  clinicId}
     }));
 }
 
@@ -326,9 +368,9 @@ Value HospitalEngine::api_admin_remove_clinic(const Value& data) {
 
 Value HospitalEngine::api_admin_add_symptom(const Value& data) {
     const Value* clinicV = data.get("clinicId");
-    const Value* nameV = data.get("name");
-    const Value* urgV = data.get("urgencyLevel");
-    const Value* estV = data.get("estimatedTreatmentMinutes");
+    const Value* nameV   = data.get("name");
+    const Value* urgV    = data.get("urgencyLevel");
+    const Value* estV    = data.get("estimatedTreatmentMinutes");
     if (!clinicV || !nameV || !urgV || !estV || !nameV->isString()) {
         return err("admin_add_symptom requires {clinicId, name, urgencyLevel(1..5), estimatedTreatmentMinutes}");
     }
@@ -346,7 +388,7 @@ Value HospitalEngine::api_admin_add_symptom(const Value& data) {
 
 Value HospitalEngine::api_admin_remove_symptom(const Value& data) {
     const Value* clinicV = data.get("clinicId");
-    const Value* idxV = data.get("symptomIndex");
+    const Value* idxV    = data.get("symptomIndex");
     if (!clinicV || !idxV) return err("admin_remove_symptom requires {clinicId, symptomIndex}");
     Clinic* c = findClinic(clinicV->asInt(-1));
     if (!c) return err("Invalid clinicId");
@@ -364,6 +406,7 @@ Value HospitalEngine::api_admin_finish_next(const Value& data) {
     Patient* p = c->dequeuePatient();
     if (!p) return err("Queue empty");
     p->markServed(p->getArrivalTime());
+    patientTrie.remove(p);                 // served patients leave the search index
     std::string e;
     if (!save(e)) return err(e);
     return ok(SimpleJson::object({{"finishedPatientId", p->getId()}}));
@@ -371,8 +414,8 @@ Value HospitalEngine::api_admin_finish_next(const Value& data) {
 
 Value HospitalEngine::api_admin_triage_pending(const Value& data) {
     const Value* urgencyV = data.get("urgencyLevel");
-    const Value* estV = data.get("estimatedTreatmentMinutes");
-    const Value* clinicV = data.get("clinicId");
+    const Value* estV     = data.get("estimatedTreatmentMinutes");
+    const Value* clinicV  = data.get("clinicId");
     if (!urgencyV || !estV || !clinicV) {
         return err("admin_triage_pending requires {clinicId, urgencyLevel(1..5), estimatedTreatmentMinutes}");
     }
@@ -397,14 +440,15 @@ Value HospitalEngine::api_admin_triage_pending(const Value& data) {
     std::string symptomName = p->getReportedSymptoms().empty() ? "Other" : p->getReportedSymptoms();
     p->setCondition(Condition(symptomName, (UrgencyLevel)u, est));
     clinic->enqueuePatient(p);
+    // No trie change needed here — patient was already inserted on add_pending_patient
 
     std::string e;
     if (!save(e)) return err(e);
 
     return ok(SimpleJson::object({
-        {"patientId", pid},
-        {"triaged", true},
-        {"clinicId", clinicId},
+        {"patientId",    pid},
+        {"triaged",      true},
+        {"clinicId",     clinicId},
         {"priorityScore", p->getPriorityScore()}
     }));
 }
@@ -418,17 +462,17 @@ Value HospitalEngine::toJson() const {
         const Patient* p = kv.second.get();
         if (!p) continue;
         patientsArr.push_back(SimpleJson::object({
-            {"id", p->getId()},
-            {"name", p->getName()},
-            {"phone", p->getPhone()},
-            {"reportedSymptoms", p->getReportedSymptoms()},
-            {"clinicId", p->getClinicId()},
-            {"arrivalTime", p->getArrivalTime()},
-            {"agingCounter", p->getAgingCounter()},
-            {"served", p->isServed()},
-            {"serviceStartTime", p->getServiceStartTime()},
-            {"conditionName", p->getCondition().name},
-            {"urgencyLevel", (int)p->getCondition().category.level},
+            {"id",                        p->getId()},
+            {"name",                      p->getName()},
+            {"phone",                     p->getPhone()},
+            {"reportedSymptoms",          p->getReportedSymptoms()},
+            {"clinicId",                  p->getClinicId()},
+            {"arrivalTime",               p->getArrivalTime()},
+            {"agingCounter",              p->getAgingCounter()},
+            {"served",                    p->isServed()},
+            {"serviceStartTime",          p->getServiceStartTime()},
+            {"conditionName",             p->getCondition().name},
+            {"urgencyLevel",              (int)p->getCondition().category.level},
             {"estimatedTreatmentMinutes", p->getCondition().estimatedTreatmentMinutes}
         }));
     }
@@ -441,7 +485,7 @@ Value HospitalEngine::toJson() const {
             if (p) ids.push_back(p->getId());
         }
         clinicQueues.push_back(SimpleJson::object({
-            {"clinicId", c->getId()},
+            {"clinicId",   c->getId()},
             {"waitingIds", std::move(ids)}
         }));
     }
@@ -453,27 +497,27 @@ Value HospitalEngine::toJson() const {
         const auto& cc = c->getCommonConditions();
         for (int i = 0; i < (int)cc.size(); ++i) {
             symptoms.push_back(SimpleJson::object({
-                {"name", cc[i].name},
-                {"urgencyLevel", (int)cc[i].category.level},
+                {"name",                      cc[i].name},
+                {"urgencyLevel",              (int)cc[i].category.level},
                 {"estimatedTreatmentMinutes", cc[i].estimatedTreatmentMinutes}
             }));
         }
         clinicsArr.push_back(SimpleJson::object({
-            {"id", c->getId()},
-            {"name", c->getName()},
+            {"id",        c->getId()},
+            {"name",      c->getName()},
             {"specialty", c->getSpecialty()},
-            {"symptoms", std::move(symptoms)}
+            {"symptoms",  std::move(symptoms)}
         }));
     }
 
     return SimpleJson::object({
         {"nextPatientId", nextPatientId},
-        {"nextClinicId", nextClinicId},
-        {"arrivalSeq", arrivalSeq},
-        {"patients", std::move(patientsArr)},
-        {"clinics", std::move(clinicsArr)},
-        {"clinicQueues", std::move(clinicQueues)},
-        {"pendingIds", [&]() {
+        {"nextClinicId",  nextClinicId},
+        {"arrivalSeq",    arrivalSeq},
+        {"patients",      std::move(patientsArr)},
+        {"clinics",       std::move(clinicsArr)},
+        {"clinicQueues",  std::move(clinicQueues)},
+        {"pendingIds",    [&]() {
             Array a;
             a.reserve(pendingIds.size());
             for (int pid : pendingIds) a.push_back(pid);
@@ -484,23 +528,24 @@ Value HospitalEngine::toJson() const {
 
 bool HospitalEngine::fromJson(const Value& root, std::string& error) {
     if (!root.isObject()) { error = "state root is not an object"; return false; }
-    const Value* nextV = root.get("nextPatientId");
+    const Value* nextV      = root.get("nextPatientId");
     const Value* nextClinicV = root.get("nextClinicId");
-    const Value* arrivalV = root.get("arrivalSeq");
-    const Value* patsV = root.get("patients");
-    const Value* clinicsV = root.get("clinics");
+    const Value* arrivalV   = root.get("arrivalSeq");
+    const Value* patsV      = root.get("patients");
+    const Value* clinicsV   = root.get("clinics");
     if (!nextV || !patsV || !patsV->isArray() || !clinicsV || !clinicsV->isArray()) {
         error = "state missing fields";
         return false;
     }
 
     nextPatientId = nextV->asInt(1);
-    nextClinicId = nextClinicV ? nextClinicV->asInt(4) : 4;
-    arrivalSeq = arrivalV ? arrivalV->asInt(0) : 0;
+    nextClinicId  = nextClinicV ? nextClinicV->asInt(4) : 4;
+    arrivalSeq    = arrivalV ? arrivalV->asInt(0) : 0;
 
     patients.clear();
     clinics.clear();
     pendingIds.clear();
+    patientTrie.clear();                   // wipe trie before rebuilding from disk
 
     // Recreate clinics + symptoms
     for (const Value& cv : clinicsV->asArray()) {
@@ -527,19 +572,19 @@ bool HospitalEngine::fromJson(const Value& root, std::string& error) {
     // Recreate patients
     for (const Value& pv : patsV->asArray()) {
         if (!pv.isObject()) continue;
-        int id = pv.get("id") ? pv.get("id")->asInt(-1) : -1;
-        std::string name = (pv.get("name") && pv.get("name")->isString()) ? pv.get("name")->asString() : "";
-        std::string phone = (pv.get("phone") && pv.get("phone")->isString()) ? pv.get("phone")->asString() : "";
+        int id           = pv.get("id")        ? pv.get("id")->asInt(-1)          : -1;
+        std::string name = (pv.get("name")     && pv.get("name")->isString())     ? pv.get("name")->asString()             : "";
+        std::string phone   = (pv.get("phone") && pv.get("phone")->isString())    ? pv.get("phone")->asString()            : "";
         std::string reported = (pv.get("reportedSymptoms") && pv.get("reportedSymptoms")->isString()) ? pv.get("reportedSymptoms")->asString() : "";
-        int clinicId = pv.get("clinicId") ? pv.get("clinicId")->asInt(1) : 1;
-        int arrival = pv.get("arrivalTime") ? pv.get("arrivalTime")->asInt(0) : 0;
-        int aging = pv.get("agingCounter") ? pv.get("agingCounter")->asInt(0) : 0;
-        bool served = pv.get("served") ? pv.get("served")->asBool(false) : false;
+        int clinicId     = pv.get("clinicId")  ? pv.get("clinicId")->asInt(1)     : 1;
+        int arrival      = pv.get("arrivalTime") ? pv.get("arrivalTime")->asInt(0) : 0;
+        int aging        = pv.get("agingCounter") ? pv.get("agingCounter")->asInt(0) : 0;
+        bool served      = pv.get("served")    ? pv.get("served")->asBool(false)   : false;
         int serviceStart = pv.get("serviceStartTime") ? pv.get("serviceStartTime")->asInt(-1) : -1;
 
         std::string cName = (pv.get("conditionName") && pv.get("conditionName")->isString()) ? pv.get("conditionName")->asString() : "Other";
-        int urgency = pv.get("urgencyLevel") ? pv.get("urgencyLevel")->asInt(0) : 0;
-        int est = pv.get("estimatedTreatmentMinutes") ? pv.get("estimatedTreatmentMinutes")->asInt(0) : 0;
+        int urgency  = pv.get("urgencyLevel")              ? pv.get("urgencyLevel")->asInt(0)              : 0;
+        int est      = pv.get("estimatedTreatmentMinutes") ? pv.get("estimatedTreatmentMinutes")->asInt(0) : 0;
 
         if (id < 0 || name.empty()) continue;
         auto p = std::make_unique<Patient>(id, name, phone, arrival, clinicId);
@@ -548,10 +593,14 @@ bool HospitalEngine::fromJson(const Value& root, std::string& error) {
         p->setAgingCounterForLoad(aging);
         if (served && serviceStart >= 0) p->setServiceStateForLoad(true, serviceStart);
 
+        // Only re-insert into trie if the patient has not been served yet —
+        // served patients are no longer in any queue and shouldn't be searchable.
+        if (!served) patientTrie.insert(p.get());
+
         patients.emplace(id, std::move(p));
     }
 
-    // Recreate clinics/queues from ids
+    // Recreate clinic queues from saved ids
     const Value* cqV = root.get("clinicQueues");
     if (cqV && cqV->isArray()) {
         for (const Value& cq : cqV->asArray()) {
@@ -579,4 +628,3 @@ bool HospitalEngine::fromJson(const Value& root, std::string& error) {
 
     return true;
 }
-

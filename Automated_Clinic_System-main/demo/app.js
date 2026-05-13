@@ -1,12 +1,11 @@
-// ============================================================
-// Smart Hospital Demo — app.js
-// Supports four roles: Patient, Doctor, Receptionist, Admin
-// ============================================================
-
 const $ = (id) => document.getElementById(id);
 
 function pretty(x) {
-  try { return JSON.stringify(x, null, 2); } catch { return String(x); }
+  try {
+    return JSON.stringify(x, null, 2);
+  } catch {
+    return String(x);
+  }
 }
 
 async function api(path, method = "GET", body = null) {
@@ -26,116 +25,34 @@ function showToast(kind, message) {
   el.textContent = message;
   el.style.display = "block";
   window.clearTimeout(showToast._t);
-  showToast._t = window.setTimeout(() => { el.style.display = "none"; }, 3500);
+  showToast._t = window.setTimeout(() => {
+    el.style.display = "none";
+  }, 3500);
 }
 
-function setApiOut(obj)   { const el = $("outApi");   if (el) el.textContent = pretty(obj); }
-function setQueueOut(obj) { const el = $("outQueue"); if (el) el.textContent = pretty(obj); }
+function setApiOut(obj) {
+  const el = $("outApi");
+  if (el) el.textContent = pretty(obj);
+}
+function setQueueOut(obj) {
+  const el = $("outQueue");
+  if (el) el.textContent = pretty(obj);
+}
 
-// ============================================================
-// State
-// ============================================================
 let cachedClinics = [];
-let lastState     = null;
+let login = { name: "", phone: "", isAdmin: false };
 let currentPatientId = null;
+let lastState = null;
 
-// login object: { name, phone, role }
-// role: "patient" | "doctor" | "receptionist" | "admin"
-let login = { name: "", phone: "", role: "" };
-
-// Staff PINs (hardcoded for demo purposes)
-const STAFF_PINS = {
-  doctor:       "doc123",
-  receptionist: "rec123",
-  admin:        "admin",
-};
-
-// ============================================================
-// Utility: show/hide PIN input based on role
-// ============================================================
-function updateLoginForm() {
-  const role = $("loginRole").value;
-  const pinWrap = $("staffPinWrap");
-  const phoneLabel = $("loginPhone").parentElement;
-  if (role === "doctor" || role === "receptionist" || role === "admin") {
-    pinWrap.style.display = "block";
-    // Phone is not required for staff; hide validation visually but keep the field
-  } else {
-    pinWrap.style.display = "none";
-  }
-}
-
-// ============================================================
-// Role-aware view switching
-// ============================================================
-function applyMode() {
-  const role = login.role;
-  // Cards
-  const patientCard      = $("patientCard");
-  const doctorCard       = $("doctorCard");
-  const receptionistCard = $("receptionistCard");
-  const adminCard        = $("adminCard");
-
-  if (patientCard)      patientCard.style.display      = role === "patient"      ? "block" : "none";
-  if (doctorCard)       doctorCard.style.display        = role === "doctor"       ? "block" : "none";
-  if (receptionistCard) receptionistCard.style.display  = role === "receptionist" ? "block" : "none";
-  if (adminCard)        adminCard.style.display          = role === "admin"        ? "block" : "none";
-}
-
-function setScreen(screen) {
-  const loginScr = $("screenLogin");
-  const appScr   = $("screenApp");
-  if (!loginScr || !appScr) return;
-  if (screen === "login") {
-    loginScr.style.display = "grid";
-    appScr.style.display   = "none";
-  } else {
-    loginScr.style.display = "none";
-    appScr.style.display   = "block";
-  }
-}
-
-function setLoginError(msg) {
-  const el = $("loginError");
-  if (!el) return;
-  if (!msg) { el.style.display = "none"; el.textContent = ""; }
-  else       { el.style.display = "block"; el.textContent = msg; }
-}
-
-function updateWhoAmI() {
-  const el = $("whoami");
-  if (!el) return;
-  if (!login.name) { el.textContent = "Not signed in"; return; }
-
-  const roleLabel = {
-    patient:      "Patient",
-    doctor:       "Doctor",
-    receptionist: "Receptionist",
-    admin:        "Admin",
-  }[login.role] || login.role;
-
-  const badgeClass = {
-    patient:      "roleBadgePatient",
-    doctor:       "roleBadgeDoctor",
-    receptionist: "roleBadgeReceptionist",
-    admin:        "roleBadgeAdmin",
-  }[login.role] || "";
-
-  const phonePart = login.phone ? ` • ${login.phone}` : "";
-  el.innerHTML = `${login.name}${phonePart} <span class="roleBadge ${badgeClass}">${roleLabel}</span>`;
-}
-
-// ============================================================
-// Clinic selects
-// ============================================================
 function fillClinicSelects() {
-  const ids = [
-    "patientClinic", "adminClinic", "finishClinic",
-    "viewClinic", "pendingClinic", "adminPendingClinic",
-  ];
-  for (const id of ids) {
-    const sel = $(id);
-    if (!sel) continue;
+  const selects = [
+    $("patientClinic"),
+    $("adminClinic"),
+    $("finishClinic"),
+    $("viewClinic"),
+    $("pendingClinic"),
+  ].filter(Boolean);
+  for (const sel of selects) {
     sel.innerHTML = "";
     for (const c of cachedClinics) {
       const opt = document.createElement("option");
@@ -147,10 +64,9 @@ function fillClinicSelects() {
 }
 
 function fillPatientSymptoms() {
-  const clinicId = Number(($("patientClinic") || {}).value || 1);
+  const clinicId = Number($("patientClinic").value || 1);
   const clinic = cachedClinics.find((c) => c.id === clinicId);
   const sel = $("patientSymptom");
-  if (!sel) return;
   sel.innerHTML = "";
   if (!clinic) return;
   for (const cond of clinic.conditions || []) {
@@ -166,10 +82,9 @@ function fillPatientSymptoms() {
 }
 
 function fillAdminSymptoms() {
-  const clinicId = Number(($("adminClinic") || {}).value || 1);
+  const clinicId = Number($("adminClinic").value || 1);
   const clinic = cachedClinics.find((c) => c.id === clinicId);
   const sel = $("adminSymptom");
-  if (!sel) return;
   sel.innerHTML = "";
   if (!clinic) return;
   for (const cond of clinic.conditions || []) {
@@ -183,37 +98,76 @@ function fillAdminSymptoms() {
 async function loadClinics() {
   const resp = await api("/api/clinics");
   setApiOut(resp);
-  if (resp.status !== "ok") return;
+  if (resp.status !== "ok") {
+    return;
+  }
   cachedClinics = resp.data || [];
   fillClinicSelects();
   fillPatientSymptoms();
   fillAdminSymptoms();
+  // Default view clinic to the first option (if empty)
   const viewSel = $("viewClinic");
   if (viewSel && !viewSel.value && cachedClinics.length) {
     viewSel.value = String(cachedClinics[0].id);
   }
 }
 
-// ============================================================
-// State refresh
-// ============================================================
 async function refreshState() {
   const resp = await api("/api/state");
   setQueueOut(resp);
-  renderQueuePanel(resp);
-  renderDoctorPanel(resp);
-  lastState = (resp && resp.status === "ok") ? resp.data : null;
-  fillPendingSelect("pendingSelect", "pendingDetails", "pendingCount");
-  fillPendingSelect("adminPendingSelect", "adminPendingDetails", null);
+  renderState(resp);
+  lastState = resp && resp.status === "ok" ? resp.data : null;
+  fillPendingSelect();
   if (resp && resp.status === "error") {
     showToast("error", resp.message || "Failed to load system state.");
   }
   return resp;
 }
 
-// ============================================================
-// Queue panel renderer
-// ============================================================
+function applyMode() {
+  const p = $("patientCard");
+  const a = $("adminCard");
+  if (p) p.style.display = login.isAdmin ? "none" : "block";
+  if (a) a.style.display = login.isAdmin ? "block" : "none";
+}
+
+function setScreen(screen) {
+  const loginScr = $("screenLogin");
+  const appScr = $("screenApp");
+  if (!loginScr || !appScr) return;
+  if (screen === "login") {
+    loginScr.style.display = "grid";
+    appScr.style.display = "none";
+  } else {
+    loginScr.style.display = "none";
+    appScr.style.display = "block";
+  }
+}
+
+function setLoginError(msg) {
+  const el = $("loginError");
+  if (!el) return;
+  if (!msg) {
+    el.style.display = "none";
+    el.textContent = "";
+  } else {
+    el.style.display = "block";
+    el.textContent = msg;
+  }
+}
+
+function updateWhoAmI() {
+  const el = $("whoami");
+  if (!el) return;
+  if (!login.name) {
+    el.textContent = "Not signed in";
+  } else if (login.isAdmin) {
+    el.textContent = "Admin";
+  } else {
+    el.textContent = `${login.name} • ${login.phone || "No phone"}`;
+  }
+}
+
 function badgeClassByUrgencyName(name) {
   const n = String(name || "").toLowerCase();
   if (n.includes("critical")) return "badge badgeCritical";
@@ -221,12 +175,12 @@ function badgeClassByUrgencyName(name) {
   return "badge badgeNormal";
 }
 
-function renderQueuePanel(resp) {
+function renderState(resp) {
   if (!resp || resp.status !== "ok") return;
-  const data    = resp.data || {};
+  const data = resp.data || {};
   const clinics = data.clinics || [];
 
-  const viewSel     = $("viewClinic");
+  const viewSel = $("viewClinic");
   const viewClinicId = viewSel
     ? Number(viewSel.value || (clinics[0]?.clinicId ?? clinics[0]?.id ?? 1))
     : (clinics[0]?.clinicId ?? clinics[0]?.id ?? 1);
@@ -265,20 +219,21 @@ function renderQueuePanel(resp) {
     });
   }
 
-  // Patient status tracker
+  // Patient status (if logged in as patient)
   const statusEl = $("patientStatus");
   const posEl    = $("patientPosition");
-  if (statusEl && posEl && login.role === "patient") {
+  if (statusEl && posEl && !login.isAdmin) {
     if (!currentPatientId) {
       statusEl.textContent = "Not registered yet";
       posEl.textContent    = "—";
     } else {
-      let found = null; let foundClinic = null; let position = null;
+      let found = null, foundClinic = null, position = null;
       for (const c of clinics) {
         const w = c.waiting || [];
         for (let i = 0; i < w.length; i++) {
           if (Number(w[i].id) === Number(currentPatientId)) {
-            found = w[i]; foundClinic = c; position = i + 1; break;
+            found = w[i]; foundClinic = c; position = i + 1;
+            break;
           }
         }
         if (found) break;
@@ -294,84 +249,12 @@ function renderQueuePanel(resp) {
   }
 }
 
-// ============================================================
-// Doctor panel renderer
-// ============================================================
-function renderDoctorPanel(resp) {
-  const container = $("doctorClinicList");
-  if (!container) return;
-  if (!resp || resp.status !== "ok") return;
-
-  const clinics = (resp.data || {}).clinics || [];
-  container.innerHTML = "";
-
-  if (clinics.length === 0) {
-    container.innerHTML = `<div class="muted small">No clinics available.</div>`;
-    return;
-  }
-
-  for (const c of clinics) {
-    const clinicId   = c.clinicId || c.id;
-    const clinicName = c.clinicName || c.name || `Clinic ${clinicId}`;
-    const waiting    = c.waiting || [];
-    const queueSize  = c.queueSize ?? waiting.length;
-    const nextPat    = waiting[0];
-
-    const card = document.createElement("div");
-    card.className = "doctorClinicCard";
-
-    const nextInfo = nextPat
-      ? `Next: <strong>${nextPat.name}</strong> — ${nextPat.symptom || "—"} <span class="${badgeClassByUrgencyName(nextPat.urgencyName)}">${nextPat.urgencyName || "Normal"}</span>`
-      : "Queue is empty";
-
-    card.innerHTML = `
-      <div class="doctorClinicTitle">${clinicName}</div>
-      <div class="doctorQueueSize">${queueSize} patient${queueSize !== 1 ? "s" : ""} waiting</div>
-      <div class="doctorNextPatient">${nextInfo}</div>
-      <button class="btn btnDoctor" data-clinic="${clinicId}" ${queueSize === 0 ? "disabled" : ""}>
-        ✅ Finish Patient
-      </button>
-    `;
-    container.appendChild(card);
-  }
-
-  // Attach finish handlers
-  container.querySelectorAll("button[data-clinic]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const clinicId = Number(btn.dataset.clinic);
-      btn.disabled = true;
-      const resp = await api("/api/admin/finish_next", "POST", { clinicId });
-      setApiOut(resp);
-      if (resp.status === "ok") {
-        showToast("ok", `Finished patient #${resp.data?.finishedPatientId ?? ""}`.trim());
-      } else {
-        showToast("error", resp.message || "Finish failed.");
-      }
-      await refreshState();
-    });
-  });
-}
-
-// ============================================================
-// Pending patient select (Receptionist + Admin shared)
-// ============================================================
-function fillPendingSelect(selectId, detailsId, countId) {
-  const sel     = $(selectId);
-  const details = $(detailsId);
+function fillPendingSelect() {
+  const sel     = $("pendingSelect");
+  const details = $("pendingDetails");
   if (!sel || !details) return;
-
   sel.innerHTML = "";
   const pending = (lastState && lastState.pending) ? lastState.pending : [];
-
-  if (countId) {
-    const countEl = $(countId);
-    if (countEl) {
-      countEl.textContent = pending.length
-        ? `${pending.length} patient${pending.length !== 1 ? "s" : ""} awaiting triage`
-        : "No pending patients";
-    }
-  }
-
   if (!pending.length) {
     const opt = document.createElement("option");
     opt.value = "";
@@ -387,99 +270,92 @@ function fillPendingSelect(selectId, detailsId, countId) {
     sel.appendChild(opt);
   }
   const first = pending[0];
-  details.innerHTML = first
-    ? `<strong>${first.name}</strong> — Symptoms: ${first.reportedSymptoms || "—"}`
-    : "";
+  details.textContent = `Symptoms: ${first.reportedSymptoms || "—"}`;
 }
 
-// ============================================================
-// Login handler
-// ============================================================
-async function handleLogin() {
-  const name  = $("loginName").value.trim();
-  const phone = $("loginPhone").value.trim();
-  const role  = $("loginRole").value;
-  const pin   = ($("loginPin") || {}).value || "";
+// ---- Search (Trie) --------------------------------------------------
+// Fires on every keystroke (debounced 250 ms) or on the Search button.
+// GET /api/search?q=<prefix>  →  C++ Trie.searchPrefix()  →  O(m + k)
+let _searchTimer = null;
 
-  setLoginError("");
+function renderSearchResults(resp) {
+  const container = $("searchResults");
+  if (!container) return;
 
-  // Name validation for all roles
-  if (!name) { setLoginError("Please enter your name."); return; }
-  if (name.length < 3) { setLoginError("Name must be at least 3 characters."); return; }
-  if (name.length > 30) { setLoginError("Name is too long."); return; }
-  const nameRegex = /^[a-zA-Z\u0600-\u06FF\s]+$/;
-  if (!nameRegex.test(name)) { setLoginError("Name can contain letters only."); return; }
-
-  if (role === "patient") {
-    // Phone required for patients
-    if (!phone) { setLoginError("Please enter phone number."); return; }
-    const phoneRegex = /^01[0125][0-9]{8}$/;
-    if (!phoneRegex.test(phone)) { setLoginError("Please enter a valid Egyptian mobile number."); return; }
-  } else {
-    // Staff: validate PIN
-    const expectedPin = STAFF_PINS[role];
-    if (!pin) { setLoginError("Please enter staff PIN."); return; }
-    if (pin !== expectedPin) { setLoginError("Incorrect staff PIN."); return; }
+  if (!resp || resp.status !== "ok") {
+    container.innerHTML = `<div class="muted small">${resp?.message || "Search failed."}</div>`;
+    return;
   }
 
-  login = { name, phone: role === "patient" ? phone : "", role };
-  currentPatientId = null;
-  setScreen("app");
-  applyMode();
-  updateWhoAmI();
-  setApiOut({ status: "ok", data: { login } });
-  await loadClinics();
-  await refreshState();
+  const results = resp.data?.results || [];
+  if (results.length === 0) {
+    container.innerHTML = `<div class="muted small">No patients found.</div>`;
+    return;
+  }
+
+  container.innerHTML = results.map((p) => `
+    <div class="queueRow" style="grid-template-columns:56px 1.5fr 1fr 140px">
+      <div class="queueCellMuted">#${p.id}</div>
+      <div style="font-weight:650">${p.name}</div>
+      <div class="queueCellMuted">Clinic ${p.clinicId}</div>
+      <div><span class="${badgeClassByUrgencyName(p.urgencyName)}">${p.urgencyName || "Pending"}</span></div>
+    </div>
+  `).join("");
 }
 
-// ============================================================
-// init
-// ============================================================
+async function runSearch() {
+  const q = ($("searchInput")?.value || "").trim();
+  if (!q) {
+    const c = $("searchResults");
+    if (c) c.innerHTML = "";
+    return;
+  }
+  const resp = await api(`/api/search?q=${encodeURIComponent(q)}`);
+  setApiOut(resp);
+  renderSearchResults(resp);
+}
+
+// ---- Init -----------------------------------------------------------
+
 async function init() {
-  // Login role change → toggle PIN visibility
-  $("loginRole").addEventListener("change", updateLoginForm);
-  updateLoginForm();
-
-  $("btnLogin").addEventListener("click", handleLogin);
-
-  $("loginName").addEventListener("keydown", (e) => { if (e.key === "Enter") handleLogin(); });
-  $("loginPhone").addEventListener("keydown", (e) => { if (e.key === "Enter") handleLogin(); });
-  ($("loginPin") || {}).addEventListener && $("loginPin").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") handleLogin();
-  });
-
-  // ---- Logout ----
-  $("btnLogout").addEventListener("click", () => {
-    login = { name: "", phone: "", role: "" };
-    currentPatientId = null;
-    $("loginName").value  = "";
-    $("loginPhone").value = "";
-    if ($("loginPin")) $("loginPin").value = "";
-    setLoginError("");
-    updateWhoAmI();
-    setScreen("login");
-  });
-
-  // ---- Reset / Refresh ----
   $("btnReset").addEventListener("click", async () => {
     const resp = await api("/api/reset", "POST", {});
     setApiOut(resp);
     if (resp.status === "ok") showToast("ok", "System reset.");
     else showToast("error", resp.message || "Reset failed.");
+    // Clear search results on reset since all patients are wiped
+    const c = $("searchResults");
+    if (c) c.innerHTML = "";
+    if ($("searchInput")) $("searchInput").value = "";
+    await refreshState();
+  });
+
+  $("btnLogin").addEventListener("click", async () => {
+    const name  = $("loginName").value.trim();
+    const phone = $("loginPhone").value.trim();
+    setLoginError("");
+    if (!name) { setLoginError("Please enter your name."); return; }
+    login = { name, phone, isAdmin: name === "Admin" && phone === "" };
+    currentPatientId = null;
+    setScreen("app");
+    applyMode();
+    updateWhoAmI();
+    setApiOut({ status: "ok", data: { login } });
     await loadClinics();
     await refreshState();
   });
 
-  $("btnRefresh").addEventListener("click", async () => {
-    await loadClinics();
-    await refreshState();
+  $("patientClinic").addEventListener("change", () => {
+    fillPatientSymptoms();
   });
 
-  // ---- Patient: clinic / symptom ----
-  $("patientClinic").addEventListener("change", () => fillPatientSymptoms());
   $("patientSymptom").addEventListener("change", () => {
     const v = $("patientSymptom").value;
     $("otherSymptomWrap").style.display = v === "other" ? "block" : "none";
+  });
+
+  $("adminClinic").addEventListener("change", () => {
+    fillAdminSymptoms();
   });
 
   $("btnRegister").addEventListener("click", async () => {
@@ -495,9 +371,9 @@ async function init() {
       if (resp.status === "ok") showToast("ok", "Submitted for triage.");
       else showToast("error", resp.message || "Could not submit.");
     } else {
+      const symptomIndex = Number(symptomVal);
       resp = await api("/api/add_patient", "POST", {
-        name: login.name, phone: login.phone, clinicId,
-        symptomIndex: Number(symptomVal),
+        name: login.name, phone: login.phone, clinicId, symptomIndex,
       });
       if (resp.status === "ok") showToast("ok", "You joined the queue.");
       else showToast("error", resp.message || "Could not join queue.");
@@ -510,11 +386,10 @@ async function init() {
     await refreshState();
   });
 
-  // ---- Queue viewer ----
-  $("viewClinic").addEventListener("change", async () => { await refreshState(); });
-
-  // ---- Admin: clinic management ----
-  $("adminClinic").addEventListener("change", () => fillAdminSymptoms());
+  $("btnRefresh").addEventListener("click", async () => {
+    await loadClinics();
+    await refreshState();
+  });
 
   $("btnAddClinic").addEventListener("click", async () => {
     const name      = $("newClinicName").value.trim();
@@ -538,9 +413,9 @@ async function init() {
   });
 
   $("btnAddSymptom").addEventListener("click", async () => {
-    const clinicId = Number($("adminClinic").value);
-    const name     = $("newSymptomName").value.trim();
-    const urgencyLevel = Number($("newSymptomUrgency").value);
+    const clinicId                = Number($("adminClinic").value);
+    const name                    = $("newSymptomName").value.trim();
+    const urgencyLevel            = Number($("newSymptomUrgency").value);
     const estimatedTreatmentMinutes = Number($("newSymptomEst").value);
     const resp = await api("/api/admin/add_symptom", "POST", {
       clinicId, name, urgencyLevel, estimatedTreatmentMinutes,
@@ -572,20 +447,17 @@ async function init() {
     await refreshState();
   });
 
-  // ---- Admin triage panel ----
-  $("adminPendingSelect").addEventListener("change", () => {
+  $("pendingSelect").addEventListener("change", () => {
     const pending = (lastState && lastState.pending) ? lastState.pending : [];
-    const id = Number($("adminPendingSelect").value);
-    const p  = pending.find((x) => Number(x.id) === id) || pending[0];
-    $("adminPendingDetails").innerHTML = p
-      ? `<strong>${p.name}</strong> — Symptoms: ${p.reportedSymptoms || "—"}`
-      : "";
+    const id      = Number($("pendingSelect").value);
+    const p       = pending.find((x) => Number(x.id) === id) || pending[0];
+    $("pendingDetails").textContent = p ? `Symptoms: ${p.reportedSymptoms || "—"}` : "";
   });
 
-  $("btnAdminTriagePending").addEventListener("click", async () => {
-    const clinicId  = Number($("adminPendingClinic").value);
-    const urgencyLevel = Number($("adminPendingUrgency").value);
-    const estimatedTreatmentMinutes = Number($("adminPendingEst").value);
+  $("btnTriagePending").addEventListener("click", async () => {
+    const clinicId                  = Number($("pendingClinic").value);
+    const urgencyLevel              = Number($("pendingUrgency").value);
+    const estimatedTreatmentMinutes = Number($("pendingEst").value);
     const resp = await api("/api/admin/triage_pending", "POST", {
       clinicId, urgencyLevel, estimatedTreatmentMinutes,
     });
@@ -595,89 +467,33 @@ async function init() {
     await refreshState();
   });
 
-  // ============================================================
-  // RECEPTIONIST — pending select + triage + save diagnosis
-  // ============================================================
-  $("pendingSelect").addEventListener("change", () => {
-    const pending = (lastState && lastState.pending) ? lastState.pending : [];
-    const id = Number($("pendingSelect").value);
-    const p  = pending.find((x) => Number(x.id) === id) || pending[0];
-    $("pendingDetails").innerHTML = p
-      ? `<strong>${p.name}</strong> — Symptoms: ${p.reportedSymptoms || "—"}`
-      : "";
+  // Search — debounced on input, immediate on button click
+  $("searchInput").addEventListener("input", () => {
+    window.clearTimeout(_searchTimer);
+    _searchTimer = window.setTimeout(runSearch, 250);
   });
+  $("btnSearch").addEventListener("click", runSearch);
 
-  // Toggle "save diagnosis name" input visibility
-  $("pendingSave").addEventListener("change", () => {
-    $("pendingSaveNameWrap").style.display = $("pendingSave").checked ? "block" : "none";
-    if ($("pendingSave").checked) {
-      // Pre-fill the label with the selected patient's reported symptoms as a suggestion
-      const pending = (lastState && lastState.pending) ? lastState.pending : [];
-      const id = Number($("pendingSelect").value);
-      const p  = pending.find((x) => Number(x.id) === id) || pending[0];
-      if (p && p.reportedSymptoms) {
-        const nameInput = $("pendingSaveName");
-        if (nameInput && !nameInput.value) nameInput.value = p.reportedSymptoms.slice(0, 40);
-      }
-    }
-  });
-
-  $("btnTriagePending").addEventListener("click", async () => {
-    const clinicId  = Number($("pendingClinic").value);
-    const urgencyLevel = Number($("pendingUrgency").value);
-    const estimatedTreatmentMinutes = Number($("pendingEst").value);
-    const shouldSave = $("pendingSave").checked;
-    const saveName   = ($("pendingSaveName").value || "").trim();
-
-    if (estimatedTreatmentMinutes <= 0) {
-      showToast("error", "Estimated minutes must be greater than 0.");
-      return;
-    }
-
-    // 1. Triage the patient
-    const triageResp = await api("/api/admin/triage_pending", "POST", {
-      clinicId, urgencyLevel, estimatedTreatmentMinutes,
-    });
-    setApiOut(triageResp);
-
-    if (triageResp.status !== "ok") {
-      showToast("error", triageResp.message || "Triage failed.");
-      await refreshState();
-      return;
-    }
-
-    showToast("ok", `Patient triaged and routed to clinic.`);
-
-    // 2. Optionally save diagnosis as a new common condition
-    if (shouldSave && saveName) {
-      const saveResp = await api("/api/admin/add_symptom", "POST", {
-        clinicId,
-        name: saveName,
-        urgencyLevel,
-        estimatedTreatmentMinutes,
-      });
-      if (saveResp.status === "ok") {
-        showToast("ok", `Diagnosis "${saveName}" saved for future use ✅`);
-      } else {
-        showToast("error", `Triage done, but could not save diagnosis: ${saveResp.message || "unknown error"}`);
-      }
-    }
-
-    // Reset checkbox + name field
-    $("pendingSave").checked = false;
-    $("pendingSaveName").value = "";
-    $("pendingSaveNameWrap").style.display = "none";
-
-    await loadClinics(); // refresh symptom list if a new one was saved
+  $("viewClinic").addEventListener("change", async () => {
     await refreshState();
   });
 
-  // ============================================================
+  $("btnLogout").addEventListener("click", () => {
+    login = { name: "", phone: "", isAdmin: false };
+    currentPatientId = null;
+    $("loginName").value  = "";
+    $("loginPhone").value = "";
+    setLoginError("");
+    updateWhoAmI();
+    setScreen("login");
+  });
+
   // Start on login screen
-  // ============================================================
   setScreen("login");
   applyMode();
   updateWhoAmI();
 }
 
-init().catch((e) => { setApiOut({ status: "error", message: String(e) }); });
+init().catch((e) => {
+  setApiOut({ status: "error", message: String(e) });
+});
