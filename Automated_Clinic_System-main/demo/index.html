@@ -1,221 +1,146 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Smart Hospital Demo</title>
-    <link rel="stylesheet" href="/assets/style.css" />
-  </head>
-  <body>
-    <div class="wrap">
-      <!-- LOGIN SCREEN -->
-      <main id="screenLogin" class="screen screenCenter">
-        <section class="card loginCard">
-          <div class="brand">
-            <div class="logo">SH</div>
-            <div>
-              <h1>Smart Hospital System</h1>
-              <p class="sub">Sign in to continue</p>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Hospital Queue</title>
+    <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- LOGIN -->
+        <div id="login-screen" class="screen active">
+            <div class="login-card">
+                <h1>🏥 Smart Hospital Queue</h1>
+                <p class="subtitle">Sign in to continue</p>
+                <div id="login-error" class="message error" style="display:none;"></div>
+                <input type="text" id="login-name" placeholder="Name (admin / receptionist / your name)">
+                <input type="tel" id="login-phone" placeholder="Phone (optional for staff)">
+                <button onclick="doLogin()">Sign In</button>
+                <p class="hint">
+                    Enter <b>admin</b> for Admin Dashboard<br>
+                    Enter <b>receptionist</b> for Triage Panel<br>
+                    Enter anything else for Patient Portal
+                </p>
             </div>
-          </div>
+        </div>
 
-          <div class="form formSingle">
-            <label>
-              Full name
-              <input id="loginName" placeholder="e.g. Sara Ahmed" autocomplete="off" />
-            </label>
-            <label>
-              Phone number
-              <input id="loginPhone" placeholder="e.g. 01012345678" autocomplete="off" />
-            </label>
-            <button id="btnLogin" class="btn btnPrimary btnFull">Sign in</button>
-          </div>
-
-          <p class="muted small">
-            Admin rule: if <code>Name == "Admin"</code> and phone is empty → admin dashboard.
-          </p>
-          <div id="loginError" class="alert" style="display:none"></div>
-        </section>
-      </main>
-
-      <!-- APP SCREEN -->
-      <div id="screenApp" class="screen" style="display:none">
-        <header class="topbar">
-          <div class="topLeft">
-            <div class="logoSmall">SH</div>
-            <div>
-              <div class="topTitle">Smart Hospital</div>
-              <div class="topSub" id="whoami">Signed in</div>
-            </div>
-          </div>
-          <div class="topRight">
-            <div id="toast" class="toast" style="display:none"></div>
-            <button id="btnRefresh" class="btn">Refresh</button>
-            <button id="btnReset" class="btn btnDanger">Reset</button>
-            <button id="btnLogout" class="btn">Logout</button>
-          </div>
-        </header>
-
-        <main class="grid">
-          <!-- Patient view -->
-          <section class="card" id="patientCard">
-            <h2>Patient</h2>
-            <div class="form">
-              <label>
-                Choose clinic
-                <select id="patientClinic"></select>
-              </label>
-              <label>
-                Choose symptom
-                <select id="patientSymptom"></select>
-              </label>
-              <label id="otherSymptomWrap" style="display:none">
-                Describe symptoms (Other)
-                <input id="otherSymptomText" placeholder="Write your symptoms here..." />
-              </label>
-              <button id="btnRegister" class="btn btnPrimary">Join queue</button>
-            </div>
-
-            <div class="kv">
-              <div class="kvItem">
-                <div class="kvLabel">Your status</div>
-                <div class="kvValue" id="patientStatus">Not registered yet</div>
-              </div>
-              <div class="kvItem">
-                <div class="kvLabel">Your queue position</div>
-                <div class="kvValue" id="patientPosition">—</div>
-              </div>
-            </div>
-          </section>
-
-          <!-- Admin view -->
-          <section class="card" id="adminCard">
-            <h2>Admin</h2>
-
-            <div class="grid2">
-              <div class="subcard">
-                <h3>Clinics</h3>
-                <div class="form2">
-                  <input id="newClinicName" placeholder="Clinic name" />
-                  <input id="newClinicSpec" placeholder="Specialty (optional)" />
-                  <button id="btnAddClinic" class="btn btnPrimary">Add</button>
+        <!-- PATIENT -->
+        <div id="patient-screen" class="screen">
+            <header>
+                <h2>Patient Portal</h2>
+                <div class="user-info">
+                    <span id="patient-name"></span>
+                    <button class="btn-secondary" onclick="doLogout()">Logout</button>
                 </div>
-                <div class="row">
-                  <label class="inline">
-                    Select clinic
-                    <select id="adminClinic"></select>
-                  </label>
-                  <button id="btnRemoveClinic" class="btn btnDanger">Remove</button>
+            </header>
+            <main class="grid-1">
+                <section class="card">
+                    <h3>Join Queue</h3>
+                    <label>Clinic</label>
+                    <select id="patient-clinic"><option value="">-- Select Clinic --</option></select>
+
+                    <label>Condition</label>
+                    <select id="patient-condition"></select>
+
+                    <div id="other-box" style="display:none;">
+                        <label>Describe your symptoms</label>
+                        <textarea id="patient-symptoms" rows="3"></textarea>
+                    </div>
+
+                    <button onclick="patientJoinQueue()">Join Queue</button>
+                    <div id="patient-message" class="message"></div>
+                </section>
+
+                <section class="card">
+                    <h3>My Status</h3>
+                    <div id="patient-status"><p class="empty">Not in queue yet</p></div>
+                </section>
+            </main>
+        </div>
+
+        <!-- RECEPTIONIST -->
+        <div id="receptionist-screen" class="screen">
+            <header>
+                <h2>Receptionist Portal</h2>
+                <button class="btn-secondary" onclick="doLogout()">Logout</button>
+            </header>
+            <main class="grid-2">
+                <section class="card">
+                    <h3>Pending Triage — Next Patient</h3>
+                    <div id="pending-list"><p class="empty">No pending patients</p></div>
+                </section>
+
+                <section class="card">
+                    <h3>Search Patients (Trie)</h3>
+                    <input type="text" id="search-input" placeholder="Type name prefix..." oninput="doSearch()">
+                    <div id="search-results"></div>
+                </section>
+
+                <section class="card full-width">
+                    <h3>Live Clinic Queues</h3>
+                    <div id="receptionist-queues"></div>
+                </section>
+            </main>
+        </div>
+
+        <!-- ADMIN -->
+        <div id="admin-screen" class="screen">
+            <header>
+                <h2>Admin Dashboard</h2>
+                <div class="header-actions">
+                    <button class="btn-danger" onclick="doReset()">Reset System</button>
+                    <button class="btn-secondary" onclick="doLogout()">Logout</button>
                 </div>
-              </div>
+            </header>
+            <main class="grid-2">
+                <section class="card">
+                    <h3>Pending Triage — Next Patient</h3>
+                    <div id="admin-pending-list"><p class="empty">No pending patients</p></div>
+                </section>
 
-              <div class="subcard">
-                <h3>Symptoms (per clinic)</h3>
-                <div class="form2">
-                  <input id="newSymptomName" placeholder="Symptom name" />
-                  <select id="newSymptomUrgency">
-                    <option value="1">1 - Elective</option>
-                    <option value="2">2 - Non-Urgent</option>
-                    <option value="3" selected>3 - Semi-Urgent</option>
-                    <option value="4">4 - Urgent</option>
-                    <option value="5">5 - Critical</option>
-                  </select>
-                  <input id="newSymptomEst" type="number" min="1" value="20" />
-                  <button id="btnAddSymptom" class="btn btnPrimary">Add</button>
-                </div>
-                <div class="row">
-                  <label class="inline">
-                    Remove symptom
-                    <select id="adminSymptom"></select>
-                  </label>
-                  <button id="btnRemoveSymptom" class="btn btnDanger">Remove</button>
-                </div>
-              </div>
-            </div>
+                <section class="card">
+                    <h3>Search Patients</h3>
+                    <input type="text" id="admin-search-input" placeholder="Type name prefix..." oninput="doAdminSearch()">
+                    <div id="admin-search-results"></div>
+                </section>
 
-            <div class="row" style="margin-top:12px">
-              <label class="inline">
-                Finish next patient in clinic
-                <select id="finishClinic"></select>
-              </label>
-              <button id="btnFinishNext" class="btn btnPrimary">Finish next</button>
-            </div>
+                <section class="card">
+                    <h3>Manage Clinics</h3>
+                    <div id="admin-clinics"></div>
+                    <div class="form-row">
+                        <input type="text" id="new-clinic-name" placeholder="Clinic name">
+                        <input type="text" id="new-clinic-spec" placeholder="Specialty">
+                        <button onclick="addClinic()">Add</button>
+                    </div>
+                </section>
 
-            <!-- Triage -->
-            <div style="margin-top:14px" class="subcard">
-              <h3>Pending triage (Other symptoms)</h3>
-              <div class="row">
-                <label class="inline">
-                  Next pending
-                  <select id="pendingSelect"></select>
-                </label>
-                <label class="inline">
-                  Severity
-                  <select id="pendingUrgency">
-                    <option value="1">1 - Elective</option>
-                    <option value="2">2 - Non-Urgent</option>
-                    <option value="3" selected>3 - Semi-Urgent</option>
-                    <option value="4">4 - Urgent</option>
-                    <option value="5">5 - Critical</option>
-                  </select>
-                </label>
-                <label class="inline">
-                  Est. minutes
-                  <input id="pendingEst" type="number" min="1" value="20" style="max-width:110px" />
-                </label>
-                <label class="inline">
-                  Route clinic
-                  <select id="pendingClinic"></select>
-                </label>
-                <button id="btnTriagePending" class="btn btnPrimary">Triage</button>
-              </div>
-              <div class="muted small" id="pendingDetails" style="margin-top:8px"></div>
-            </div>
+                <section class="card">
+                    <h3>Manage Symptoms</h3>
+                    <label>Clinic</label>
+                    <select id="symptom-clinic-select"></select>
+                    <div id="admin-symptoms-list"></div>
+                    <div class="form-stack">
+                        <input type="text" id="new-symptom-name" placeholder="Symptom name">
+                        <select id="new-symptom-urgency">
+                            <option value="1">1 — Elective</option>
+                            <option value="2">2 — Non-Urgent</option>
+                            <option value="3">3 — Semi-Urgent</option>
+                            <option value="4">4 — Urgent</option>
+                            <option value="5">5 — Critical</option>
+                        </select>
+                        <input type="number" id="new-symptom-time" placeholder="Est. minutes" min="1">
+                        <button onclick="addSymptom()">Add Symptom</button>
+                    </div>
+                </section>
 
-            <!-- Patient search (Trie) -->
-            <div style="margin-top:14px" class="subcard">
-              <h3>Search patients by name</h3>
-              <p class="muted small" style="margin:0 0 8px">
-                O(m) Trie prefix search — speed is independent of total patient count.
-              </p>
-              <div class="row">
-                <input id="searchInput"
-                       placeholder="Type a name prefix, e.g. &quot;sar&quot;"
-                       style="flex:1" />
-                <button id="btnSearch" class="btn btnPrimary">Search</button>
-              </div>
-              <div id="searchResults" style="margin-top:10px"></div>
-            </div>
-          </section>
-
-          <!-- Simple readable state -->
-          <section class="card cardWide">
-            <div class="row" style="justify-content:space-between">
-              <h2 style="margin:0">Queues</h2>
-              <label class="inline muted small">
-                View clinic
-                <select id="viewClinic"></select>
-              </label>
-            </div>
-
-            <div class="queuePanel">
-              <div class="queueHeader">
-                <div class="queueTitle" id="queueTitle">Clinic</div>
-                <div class="queueMeta" id="queueMeta">0 waiting</div>
-              </div>
-              <div id="queueList" class="queueList"></div>
-            </div>
-
-            <details class="raw">
-              <summary>Raw JSON (for debugging)</summary>
-              <pre id="outApi" class="out"></pre>
-              <pre id="outQueue" class="out"></pre>
-            </details>
-          </section>
-        </main>
-      </div>
+                <section class="card full-width">
+                    <h3>Clinic Queues & Finish Next</h3>
+                    <div id="admin-queues"></div>
+                </section>
+            </main>
+        </div>
     </div>
-
-    <script src="/assets/app.js"></script>
-  </body>
+    <script src="assets/app.js"></script>
+</body>
 </html>

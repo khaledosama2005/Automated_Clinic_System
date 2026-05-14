@@ -1,499 +1,487 @@
-const $ = (id) => document.getElementById(id);
+/* =======================
+   Smart Hospital Queue — Frontend
+   ======================= */
 
-function pretty(x) {
-  try {
-    return JSON.stringify(x, null, 2);
-  } catch {
-    return String(x);
-  }
-}
+let currentUser = null;
+let clinicsData = [];
+let stateData   = null;
+let refreshTimer = null;
 
-async function api(path, method = "GET", body = null) {
-  const init = { method, headers: {} };
-  if (body !== null) {
-    init.headers["Content-Type"] = "application/json";
-    init.body = JSON.stringify(body);
-  }
-  const res = await fetch(path, init);
-  return await res.json();
-}
+const API_BASE = '';
 
-function showToast(kind, message) {
-  const el = $("toast");
-  if (!el) return;
-  el.className = `toast ${kind === "error" ? "toastErr" : "toastOk"}`;
-  el.textContent = message;
-  el.style.display = "block";
-  window.clearTimeout(showToast._t);
-  showToast._t = window.setTimeout(() => {
-    el.style.display = "none";
-  }, 3500);
-}
-
-function setApiOut(obj) {
-  const el = $("outApi");
-  if (el) el.textContent = pretty(obj);
-}
-function setQueueOut(obj) {
-  const el = $("outQueue");
-  if (el) el.textContent = pretty(obj);
-}
-
-let cachedClinics = [];
-let login = { name: "", phone: "", isAdmin: false };
-let currentPatientId = null;
-let lastState = null;
-
-function fillClinicSelects() {
-  const selects = [
-    $("patientClinic"),
-    $("adminClinic"),
-    $("finishClinic"),
-    $("viewClinic"),
-    $("pendingClinic"),
-  ].filter(Boolean);
-  for (const sel of selects) {
-    sel.innerHTML = "";
-    for (const c of cachedClinics) {
-      const opt = document.createElement("option");
-      opt.value = String(c.id);
-      opt.textContent = `${c.id} - ${c.name}`;
-      sel.appendChild(opt);
+/* ---------- Low-level API ---------- */
+async function api(method, endpoint, body = null) {
+    const opts = { method, headers: {} };
+    if (body && (method === 'POST' || method === 'PUT')) {
+        opts.headers['Content-Type'] = 'application/json';
+        opts.body = JSON.stringify(body);
     }
-  }
+    try {
+        const res = await fetch(API_BASE + endpoint, opts);
+        const text = await res.text();
+        try { return JSON.parse(text); }
+        catch { return { status: 'error', message: 'Invalid JSON: ' + text.slice(0, 200) }; }
+    } catch (err) {
+        return { status: 'error', message: 'Network: ' + err.message };
+    }
 }
 
-function fillPatientSymptoms() {
-  const clinicId = Number($("patientClinic").value || 1);
-  const clinic = cachedClinics.find((c) => c.id === clinicId);
-  const sel = $("patientSymptom");
-  sel.innerHTML = "";
-  if (!clinic) return;
-  for (const cond of clinic.conditions || []) {
-    const opt = document.createElement("option");
-    opt.value = String(cond.index);
-    opt.textContent = `${cond.name} (${cond.urgencyName}, ~${cond.estimatedTreatmentMinutes}m)`;
-    sel.appendChild(opt);
-  }
-  const other = document.createElement("option");
-  other.value = "other";
-  other.textContent = "Other (write symptoms)";
-  sel.appendChild(other);
+/* ---------- Login Error Helper (defined OUTSIDE doLogin) ---------- */
+function setLoginError(msg) {
+    const errorEl = document.getElementById('login-error');
+    const nameEl  = document.getElementById('login-name');
+    const phoneEl = document.getElementById('login-phone');
+    
+    if (errorEl) {
+        errorEl.textContent = msg;
+        errorEl.style.display = 'block';
+    } else {
+        alert(msg);
+    }
+    
+    // Focus the relevant field
+    if (msg && (msg.includes('phone') || msg.includes('mobile'))) {
+        if (phoneEl) phoneEl.focus();
+    } else {
+        if (nameEl) nameEl.focus();
+    }
 }
 
-function fillAdminSymptoms() {
-  const clinicId = Number($("adminClinic").value || 1);
-  const clinic = cachedClinics.find((c) => c.id === clinicId);
-  const sel = $("adminSymptom");
-  sel.innerHTML = "";
-  if (!clinic) return;
-  for (const cond of clinic.conditions || []) {
-    const opt = document.createElement("option");
-    opt.value = String(cond.index);
-    opt.textContent = `${cond.index} - ${cond.name} (${cond.urgencyName})`;
-    sel.appendChild(opt);
-  }
+function clearLoginError() {
+    const errorEl = document.getElementById('login-error');
+    if (errorEl) {
+        errorEl.textContent = '';
+        errorEl.style.display = 'none';
+    }
 }
 
+/* ---------- Auth ---------- */
+function doLogin() {
+    const nameEl  = document.getElementById('login-name');
+    const phoneEl = document.getElementById('login-phone');
+    const name    = nameEl.value.trim();
+    const phone   = phoneEl.value.trim();
+    
+    // Clear previous error
+    clearLoginError();
+
+    // =========================
+    // Name Validation
+    // =========================
+
+    // Required
+    if (!name) {
+        setLoginError("Please enter your name.");
+        return;
+    }
+
+    // Min length
+    if (name.length < 3) {
+        setLoginError("Name must be at least 3 characters.");
+        return;
+    }
+
+    // Max length
+    if (name.length > 30) {
+        setLoginError("Name is too long.");
+        return;
+    }
+
+    // Only letters and spaces (supports English + Arabic)
+    const nameRegex = /^[a-zA-Z\u0600-\u06FF\s]+$/;
+    if (!nameRegex.test(name)) {
+        setLoginError("Name can contain letters and spaces only.");
+        return;
+    }
+
+    // =========================
+    // Phone Validation
+    // =========================
+
+    // Check if staff (case-insensitive, handles "admin", "Admin", "ADMIN")
+    const lowerName = name.toLowerCase();
+    const isStaff = (lowerName === 'admin' || lowerName === 'receptionist');
+
+    if (!isStaff) {
+        // Required for patients
+        if (!phone) {
+            setLoginError("Please enter phone number.");
+            return;
+        }
+
+        // Egyptian mobile validation: 01[0,1,2,5] followed by 8 digits
+        const phoneRegex = /^01[0125][0-9]{8}$/;
+        if (!phoneRegex.test(phone)) {
+            setLoginError("Please enter a valid Egyptian mobile number.");
+            return;
+        }
+    }
+
+    // =========================
+    // Role Assignment
+    // =========================
+
+    const role = (lowerName === 'admin') ? 'admin'
+               : (lowerName === 'receptionist') ? 'receptionist'
+               : 'patient';
+
+    currentUser = { name, phone, role, patientId: null };
+    sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
+    showScreen(role);
+}
+
+function doLogout() {
+    currentUser = null;
+    sessionStorage.removeItem('currentUser');
+    if (refreshTimer) clearInterval(refreshTimer);
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('login-screen').classList.add('active');
+    clearLoginError();
+}
+
+function showScreen(role) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    if (role === 'admin') {
+        document.getElementById('admin-screen').classList.add('active');
+        initAdmin();
+    } else if (role === 'receptionist') {
+        document.getElementById('receptionist-screen').classList.add('active');
+        initReceptionist();
+    } else {
+        document.getElementById('patient-screen').classList.add('active');
+        document.getElementById('patient-name').textContent = currentUser.name;
+        initPatient();
+    }
+}
+
+/* ---------- Boot ---------- */
+document.addEventListener('DOMContentLoaded', () => {
+    const saved = sessionStorage.getItem('currentUser');
+    if (saved) {
+        try {
+            currentUser = JSON.parse(saved);
+            if (currentUser?.role) showScreen(currentUser.role);
+        } catch { sessionStorage.removeItem('currentUser'); }
+    }
+});
+
+/* ---------- Data ---------- */
 async function loadClinics() {
-  const resp = await api("/api/clinics");
-  setApiOut(resp);
-  if (resp.status !== "ok") {
-    return;
-  }
-  cachedClinics = resp.data || [];
-  fillClinicSelects();
-  fillPatientSymptoms();
-  fillAdminSymptoms();
-  // Default view clinic to the first option (if empty)
-  const viewSel = $("viewClinic");
-  if (viewSel && !viewSel.value && cachedClinics.length) {
-    viewSel.value = String(cachedClinics[0].id);
-  }
+    const res = await api('GET', '/api/clinics');
+    if (res.status === 'ok' && Array.isArray(res.data)) clinicsData = res.data;
+    else console.error('loadClinics failed', res);
 }
 
 async function refreshState() {
-  const resp = await api("/api/state");
-  setQueueOut(resp);
-  renderState(resp);
-  lastState = resp && resp.status === "ok" ? resp.data : null;
-  fillPendingSelect();
-  if (resp && resp.status === "error") {
-    showToast("error", resp.message || "Failed to load system state.");
-  }
-  return resp;
+    const res = await api('GET', '/api/state');
+    if (res.status === 'ok') { stateData = res.data; renderAll(); }
+    else console.error('refreshState failed', res);
 }
 
-function applyMode() {
-  const p = $("patientCard");
-  const a = $("adminCard");
-  if (p) p.style.display = login.isAdmin ? "none" : "block";
-  if (a) a.style.display = login.isAdmin ? "block" : "none";
+function renderAll() {
+    if (!stateData) return;
+    if (currentUser?.role === 'patient') renderPatientStatus();
+    if (currentUser?.role === 'receptionist') {
+        renderPending('pending-list', false);
+        renderQueues('receptionist-queues', false);
+    }
+    if (currentUser?.role === 'admin') {
+        renderPending('admin-pending-list', true);
+        renderQueues('admin-queues', true);
+        renderAdminClinics();
+        renderAdminSymptoms();
+    }
 }
 
-function setScreen(screen) {
-  const loginScr = $("screenLogin");
-  const appScr = $("screenApp");
-  if (!loginScr || !appScr) return;
-  if (screen === "login") {
-    loginScr.style.display = "grid";
-    appScr.style.display = "none";
-  } else {
-    loginScr.style.display = "none";
-    appScr.style.display = "block";
-  }
-}
-
-function setLoginError(msg) {
-  const el = $("loginError");
-  if (!el) return;
-  if (!msg) {
-    el.style.display = "none";
-    el.textContent = "";
-  } else {
-    el.style.display = "block";
-    el.textContent = msg;
-  }
-}
-
-function updateWhoAmI() {
-  const el = $("whoami");
-  if (!el) return;
-  if (!login.name) {
-    el.textContent = "Not signed in";
-  } else if (login.isAdmin) {
-    el.textContent = "Admin";
-  } else {
-    el.textContent = `${login.name} • ${login.phone || "No phone"}`;
-  }
-}
-
-function badgeClassByUrgencyName(name) {
-  const n = String(name || "").toLowerCase();
-  if (n.includes("critical")) return "badge badgeCritical";
-  if (n.includes("urgent"))   return "badge badgeUrgent";
-  return "badge badgeNormal";
-}
-
-function renderState(resp) {
-  if (!resp || resp.status !== "ok") return;
-  const data = resp.data || {};
-  const clinics = data.clinics || [];
-
-  const viewSel = $("viewClinic");
-  const viewClinicId = viewSel
-    ? Number(viewSel.value || (clinics[0]?.clinicId ?? clinics[0]?.id ?? 1))
-    : (clinics[0]?.clinicId ?? clinics[0]?.id ?? 1);
-  const clinic = clinics.find((c) => Number(c.clinicId || c.id) === Number(viewClinicId)) || clinics[0];
-
-  const title = $("queueTitle");
-  const meta  = $("queueMeta");
-  const list  = $("queueList");
-  if (!clinic || !title || !meta || !list) return;
-
-  title.textContent = clinic.clinicName || clinic.name || "Clinic";
-  meta.textContent  = `${clinic.queueSize ?? (clinic.waiting?.length ?? 0)} waiting`;
-
-  const waiting = clinic.waiting || [];
-  list.innerHTML = "";
-  if (waiting.length === 0) {
-    list.innerHTML = `<div class="queueRow"><div class="queueCellMuted" style="grid-column:1/-1">No patients waiting.</div></div>`;
-  } else {
-    waiting.forEach((p, idx) => {
-      const row = document.createElement("div");
-      row.className = "queueRow";
-      const urgencyName = p.urgencyName || p.urgency || "";
-      row.innerHTML = `
-        <div class="queueCellMuted">#${idx + 1}</div>
-        <div>
-          <div style="font-weight:650">${p.name || "Unnamed"}</div>
-          <div class="queueCellMuted">${p.phone ? p.phone : "No phone"}</div>
-        </div>
-        <div>
-          <div>${p.symptom || "—"}</div>
-          <div class="queueCellMuted">Priority: ${p.priorityScore ?? "—"}</div>
-        </div>
-        <div><span class="${badgeClassByUrgencyName(urgencyName)}">${urgencyName || "Normal"}</span></div>
-      `;
-      list.appendChild(row);
+/* ---------- Patient ---------- */
+function initPatient() {
+    loadClinics().then(() => {
+        populateClinicSelect('patient-clinic', true);
+        onPatientClinicChange();
+        refreshState();
+        refreshTimer = setInterval(refreshState, 3000);
     });
-  }
+    document.getElementById('patient-clinic').addEventListener('change', onPatientClinicChange);
+    document.getElementById('patient-condition').addEventListener('change', () => {
+        const box = document.getElementById('other-box');
+        box.style.display = document.getElementById('patient-condition').value === 'other' ? 'block' : 'none';
+    });
+}
 
-  // Patient status (if logged in as patient)
-  const statusEl = $("patientStatus");
-  const posEl    = $("patientPosition");
-  if (statusEl && posEl && !login.isAdmin) {
-    if (!currentPatientId) {
-      statusEl.textContent = "Not registered yet";
-      posEl.textContent    = "—";
+function populateClinicSelect(id, withEmpty) {
+    const sel = document.getElementById(id);
+    sel.innerHTML = '';
+    if (withEmpty) { const o = document.createElement('option'); o.value = ''; o.textContent = '-- Select Clinic --'; sel.appendChild(o); }
+    clinicsData.forEach(c => { const o = document.createElement('option'); o.value = c.id; o.textContent = `${c.name} (${c.specialty})`; sel.appendChild(o); });
+}
+
+function onPatientClinicChange() {
+    const cid = parseInt(document.getElementById('patient-clinic').value);
+    const sel = document.getElementById('patient-condition');
+    sel.innerHTML = '';
+    const clinic = clinicsData.find(c => c.id === cid);
+    if (!clinic) return;
+    clinic.conditions.forEach((cond, idx) => {
+        const o = document.createElement('option');
+        o.value = idx;
+        o.textContent = `${cond.name} — ${cond.urgencyName} (~${cond.estimatedTreatmentMinutes} min)`;
+        sel.appendChild(o);
+    });
+    const other = document.createElement('option');
+    other.value = 'other';
+    other.textContent = 'Other (describe symptoms)';
+    sel.appendChild(other);
+    sel.dispatchEvent(new Event('change'));
+}
+
+async function patientJoinQueue() {
+    const clinicId = parseInt(document.getElementById('patient-clinic').value);
+    const condVal  = document.getElementById('patient-condition').value;
+    const symptoms = document.getElementById('patient-symptoms').value.trim();
+    const msgEl    = document.getElementById('patient-message');
+
+    if (!clinicId) { msg('Please select a clinic', 'error'); return; }
+
+    let res;
+    if (condVal === 'other') {
+        if (!symptoms) { msg('Please describe your symptoms', 'error'); return; }
+        res = await api('POST', '/api/add_pending_patient', {
+            name: currentUser.name,
+            phone: currentUser.phone,
+            clinicId,
+            symptomsText: symptoms
+        });
     } else {
-      let found = null, foundClinic = null, position = null;
-      for (const c of clinics) {
-        const w = c.waiting || [];
-        for (let i = 0; i < w.length; i++) {
-          if (Number(w[i].id) === Number(currentPatientId)) {
-            found = w[i]; foundClinic = c; position = i + 1;
-            break;
-          }
+        res = await api('POST', '/api/add_patient', {
+            name: currentUser.name,
+            phone: currentUser.phone,
+            clinicId,
+            symptomIndex: parseInt(condVal)
+        });
+    }
+
+    if (res.status === 'ok' && res.data) {
+        msg('Successfully joined the queue!', 'success');
+        if (res.data.patientId) currentUser.patientId = res.data.patientId;
+        sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
+        refreshState();
+    } else {
+        msg('Error: ' + (res.message || 'Unknown'), 'error');
+    }
+
+    function msg(text, cls) { msgEl.textContent = text; msgEl.className = 'message ' + cls; }
+}
+
+function renderPatientStatus() {
+    const box = document.getElementById('patient-status');
+    if (!currentUser.patientId || !stateData) { box.innerHTML = '<p class="empty">Not in queue yet</p>'; return; }
+
+    let found = null, clinicName = '', position = 0, pending = false;
+
+    for (const c of stateData.clinics || []) {
+        const q = c.waiting || [];
+        for (let i = 0; i < q.length; i++) {
+            if (q[i].id === currentUser.patientId) {
+                found = q[i]; clinicName = c.clinicName; position = i + 1; break;
+            }
         }
         if (found) break;
-      }
-      if (found) {
-        statusEl.textContent = `Waiting in ${foundClinic.clinicName || foundClinic.name}`;
-        posEl.textContent    = `#${position}`;
-      } else {
-        statusEl.textContent = "Finished / not in queue";
-        posEl.textContent    = "—";
-      }
     }
-  }
-}
+    if (!found && stateData.pending) {
+        for (const p of stateData.pending) { if (p.id === currentUser.patientId) { found = p; pending = true; break; } }
+    }
+    if (!found) { box.innerHTML = '<p class="empty">You are not currently in any queue.</p>'; return; }
 
-function fillPendingSelect() {
-  const sel     = $("pendingSelect");
-  const details = $("pendingDetails");
-  if (!sel || !details) return;
-  sel.innerHTML = "";
-  const pending = (lastState && lastState.pending) ? lastState.pending : [];
-  if (!pending.length) {
-    const opt = document.createElement("option");
-    opt.value = "";
-    opt.textContent = "No pending patients";
-    sel.appendChild(opt);
-    details.textContent = "";
-    return;
-  }
-  for (const p of pending) {
-    const opt = document.createElement("option");
-    opt.value = String(p.id);
-    opt.textContent = `#${p.id} - ${p.name}`;
-    sel.appendChild(opt);
-  }
-  const first = pending[0];
-  details.textContent = `Symptoms: ${first.reportedSymptoms || "—"}`;
-}
-
-// ---- Search (Trie) --------------------------------------------------
-// Fires on every keystroke (debounced 250 ms) or on the Search button.
-// GET /api/search?q=<prefix>  →  C++ Trie.searchPrefix()  →  O(m + k)
-let _searchTimer = null;
-
-function renderSearchResults(resp) {
-  const container = $("searchResults");
-  if (!container) return;
-
-  if (!resp || resp.status !== "ok") {
-    container.innerHTML = `<div class="muted small">${resp?.message || "Search failed."}</div>`;
-    return;
-  }
-
-  const results = resp.data?.results || [];
-  if (results.length === 0) {
-    container.innerHTML = `<div class="muted small">No patients found.</div>`;
-    return;
-  }
-
-  container.innerHTML = results.map((p) => `
-    <div class="queueRow" style="grid-template-columns:56px 1.5fr 1fr 140px">
-      <div class="queueCellMuted">#${p.id}</div>
-      <div style="font-weight:650">${p.name}</div>
-      <div class="queueCellMuted">Clinic ${p.clinicId}</div>
-      <div><span class="${badgeClassByUrgencyName(p.urgencyName)}">${p.urgencyName || "Pending"}</span></div>
-    </div>
-  `).join("");
-}
-
-async function runSearch() {
-  const q = ($("searchInput")?.value || "").trim();
-  if (!q) {
-    const c = $("searchResults");
-    if (c) c.innerHTML = "";
-    return;
-  }
-  const resp = await api(`/api/search?q=${encodeURIComponent(q)}`);
-  setApiOut(resp);
-  renderSearchResults(resp);
-}
-
-// ---- Init -----------------------------------------------------------
-
-async function init() {
-  $("btnReset").addEventListener("click", async () => {
-    const resp = await api("/api/reset", "POST", {});
-    setApiOut(resp);
-    if (resp.status === "ok") showToast("ok", "System reset.");
-    else showToast("error", resp.message || "Reset failed.");
-    // Clear search results on reset since all patients are wiped
-    const c = $("searchResults");
-    if (c) c.innerHTML = "";
-    if ($("searchInput")) $("searchInput").value = "";
-    await refreshState();
-  });
-
-  $("btnLogin").addEventListener("click", async () => {
-    const name  = $("loginName").value.trim();
-    const phone = $("loginPhone").value.trim();
-    setLoginError("");
-    if (!name) { setLoginError("Please enter your name."); return; }
-    login = { name, phone, isAdmin: name === "Admin" && phone === "" };
-    currentPatientId = null;
-    setScreen("app");
-    applyMode();
-    updateWhoAmI();
-    setApiOut({ status: "ok", data: { login } });
-    await loadClinics();
-    await refreshState();
-  });
-
-  $("patientClinic").addEventListener("change", () => {
-    fillPatientSymptoms();
-  });
-
-  $("patientSymptom").addEventListener("change", () => {
-    const v = $("patientSymptom").value;
-    $("otherSymptomWrap").style.display = v === "other" ? "block" : "none";
-  });
-
-  $("adminClinic").addEventListener("change", () => {
-    fillAdminSymptoms();
-  });
-
-  $("btnRegister").addEventListener("click", async () => {
-    if (!login.name) { setApiOut({ status: "error", message: "Login first." }); return; }
-    const clinicId   = Number($("patientClinic").value);
-    const symptomVal = $("patientSymptom").value;
-    let resp;
-    if (symptomVal === "other") {
-      const symptomsText = $("otherSymptomText").value.trim();
-      resp = await api("/api/add_pending_patient", "POST", {
-        name: login.name, phone: login.phone, clinicId, symptomsText,
-      });
-      if (resp.status === "ok") showToast("ok", "Submitted for triage.");
-      else showToast("error", resp.message || "Could not submit.");
+    let html = `<div class="status-card">`;
+    html += `<p><b>Clinic:</b> ${esc(clinicName) || (pending ? 'Pending Triage' : 'Unknown')}</p>`;
+    html += `<p><b>Condition:</b> ${esc(found.symptom || found.reportedSymptoms || 'Other')}</p>`;
+    html += `<p><b>Urgency:</b> <span class="badge urgency-${found.urgency || 0}">${esc(found.urgencyName || 'Pending')}</span></p>`;
+    if (!pending) {
+        html += `<p><b>Queue Position:</b> ${position}</p>`;
+        html += `<p><b>Priority Score:</b> ${found.priorityScore}</p>`;
     } else {
-      const symptomIndex = Number(symptomVal);
-      resp = await api("/api/add_patient", "POST", {
-        name: login.name, phone: login.phone, clinicId, symptomIndex,
-      });
-      if (resp.status === "ok") showToast("ok", "You joined the queue.");
-      else showToast("error", resp.message || "Could not join queue.");
+        html += `<p><b>Status:</b> Waiting for receptionist triage</p>`;
     }
-    setApiOut(resp);
-    if (resp && resp.status === "ok" && resp.data && resp.data.patientId) {
-      currentPatientId = resp.data.patientId;
-      $("patientStatus").textContent = "Registered. Loading queue…";
-    }
-    await refreshState();
-  });
-
-  $("btnRefresh").addEventListener("click", async () => {
-    await loadClinics();
-    await refreshState();
-  });
-
-  $("btnAddClinic").addEventListener("click", async () => {
-    const name      = $("newClinicName").value.trim();
-    const specialty = $("newClinicSpec").value.trim();
-    const resp = await api("/api/admin/add_clinic", "POST", { name, specialty });
-    setApiOut(resp);
-    if (resp.status === "ok") showToast("ok", "Clinic added.");
-    else showToast("error", resp.message || "Failed to add clinic.");
-    await loadClinics();
-    await refreshState();
-  });
-
-  $("btnRemoveClinic").addEventListener("click", async () => {
-    const clinicId = Number($("adminClinic").value);
-    const resp = await api("/api/admin/remove_clinic", "POST", { clinicId });
-    setApiOut(resp);
-    if (resp.status === "ok") showToast("ok", "Clinic removed.");
-    else showToast("error", resp.message || "Failed to remove clinic.");
-    await loadClinics();
-    await refreshState();
-  });
-
-  $("btnAddSymptom").addEventListener("click", async () => {
-    const clinicId                = Number($("adminClinic").value);
-    const name                    = $("newSymptomName").value.trim();
-    const urgencyLevel            = Number($("newSymptomUrgency").value);
-    const estimatedTreatmentMinutes = Number($("newSymptomEst").value);
-    const resp = await api("/api/admin/add_symptom", "POST", {
-      clinicId, name, urgencyLevel, estimatedTreatmentMinutes,
-    });
-    setApiOut(resp);
-    if (resp.status === "ok") showToast("ok", "Symptom added.");
-    else showToast("error", resp.message || "Failed to add symptom.");
-    await loadClinics();
-    await refreshState();
-  });
-
-  $("btnRemoveSymptom").addEventListener("click", async () => {
-    const clinicId    = Number($("adminClinic").value);
-    const symptomIndex = Number($("adminSymptom").value);
-    const resp = await api("/api/admin/remove_symptom", "POST", { clinicId, symptomIndex });
-    setApiOut(resp);
-    if (resp.status === "ok") showToast("ok", "Symptom removed.");
-    else showToast("error", resp.message || "Failed to remove symptom.");
-    await loadClinics();
-    await refreshState();
-  });
-
-  $("btnFinishNext").addEventListener("click", async () => {
-    const clinicId = Number($("finishClinic").value);
-    const resp = await api("/api/admin/finish_next", "POST", { clinicId });
-    setApiOut(resp);
-    if (resp.status === "ok") showToast("ok", `Finished patient #${resp.data?.finishedPatientId ?? ""}`.trim());
-    else showToast("error", resp.message || "Finish failed.");
-    await refreshState();
-  });
-
-  $("pendingSelect").addEventListener("change", () => {
-    const pending = (lastState && lastState.pending) ? lastState.pending : [];
-    const id      = Number($("pendingSelect").value);
-    const p       = pending.find((x) => Number(x.id) === id) || pending[0];
-    $("pendingDetails").textContent = p ? `Symptoms: ${p.reportedSymptoms || "—"}` : "";
-  });
-
-  $("btnTriagePending").addEventListener("click", async () => {
-    const clinicId                  = Number($("pendingClinic").value);
-    const urgencyLevel              = Number($("pendingUrgency").value);
-    const estimatedTreatmentMinutes = Number($("pendingEst").value);
-    const resp = await api("/api/admin/triage_pending", "POST", {
-      clinicId, urgencyLevel, estimatedTreatmentMinutes,
-    });
-    setApiOut(resp);
-    if (resp.status === "ok") showToast("ok", "Patient triaged and queued.");
-    else showToast("error", resp.message || "Triage failed.");
-    await refreshState();
-  });
-
-  // Search — debounced on input, immediate on button click
-  $("searchInput").addEventListener("input", () => {
-    window.clearTimeout(_searchTimer);
-    _searchTimer = window.setTimeout(runSearch, 250);
-  });
-  $("btnSearch").addEventListener("click", runSearch);
-
-  $("viewClinic").addEventListener("change", async () => {
-    await refreshState();
-  });
-
-  $("btnLogout").addEventListener("click", () => {
-    login = { name: "", phone: "", isAdmin: false };
-    currentPatientId = null;
-    $("loginName").value  = "";
-    $("loginPhone").value = "";
-    setLoginError("");
-    updateWhoAmI();
-    setScreen("login");
-  });
-
-  // Start on login screen
-  setScreen("login");
-  applyMode();
-  updateWhoAmI();
+    html += `</div>`;
+    box.innerHTML = html;
 }
 
-init().catch((e) => {
-  setApiOut({ status: "error", message: String(e) });
-});
+/* ---------- Receptionist / Admin shared ---------- */
+function renderPending(containerId, showTriage) {
+    const box = document.getElementById(containerId);
+    if (!stateData?.pending?.length) { box.innerHTML = '<p class="empty">No pending patients</p>'; return; }
+
+    const p = stateData.pending[0];
+    let html = `<div class="pending-card">`;
+    html += `<p><b>Next:</b> ${esc(p.name)} (ID: ${p.id})</p>`;
+    html += `<p><b>Phone:</b> ${esc(p.phone || '-')}</p>`;
+    html += `<p><b>Symptoms:</b> ${esc(p.reportedSymptoms || '-')}</p>`;
+    html += `<p><b>Target Clinic:</b> ${esc(getClinicName(p.clinicId))}</p>`;
+
+    if (showTriage || currentUser.role === 'receptionist') {
+        html += `<div class="triage-form">`;
+        html += `<label>Urgency</label><select id="triage-urgency"><option value="1">1-Elective</option><option value="2">2-Non-Urgent</option><option value="3">3-Semi-Urgent</option><option value="4">4-Urgent</option><option value="5" selected>5-Critical</option></select>`;
+        html += `<label>Est. Minutes</label><input type="number" id="triage-time" value="15" min="1">`;
+        html += `<button class="btn-primary" onclick="triageNext(${p.clinicId})">Triage & Route</button>`;
+        html += `</div>`;
+    }
+    html += `</div>`;
+    if (stateData.pending.length > 1) html += `<p class="subtle">+ ${stateData.pending.length - 1} more in FIFO order</p>`;
+    box.innerHTML = html;
+}
+
+async function triageNext(clinicId) {
+    const urgency = parseInt(document.getElementById('triage-urgency').value);
+    const time    = parseInt(document.getElementById('triage-time').value);
+    if (!urgency || !time) { alert('Select urgency and estimated time'); return; }
+    const res = await api('POST', '/api/admin/triage_pending', { clinicId, urgencyLevel: urgency, estimatedTreatmentMinutes: time });
+    if (res.status === 'ok') refreshState();
+    else alert('Triage failed: ' + (res.message || 'Unknown'));
+}
+
+function renderQueues(containerId, showFinish) {
+    const box = document.getElementById(containerId);
+    if (!stateData?.clinics?.length) { box.innerHTML = '<p class="empty">No data</p>'; return; }
+
+    let html = '<div class="queues-grid">';
+    for (const c of stateData.clinics) {
+        html += `<div class="queue-card">`;
+        html += `<div class="queue-header"><h4>${esc(c.clinicName)}</h4><span class="badge">${c.queueSize} waiting</span></div>`;
+        html += `<p class="subtle">${esc(c.specialty)} • Avg Wait: ${fmt(c.avgWait)} ticks • Throughput: ${fmt(c.throughput)}/hr</p>`;
+        if (showFinish) {
+            html += `<button class="btn-small ${c.queueSize ? 'btn-primary' : 'btn-disabled'}" onclick="finishNext(${c.clinicId})" ${!c.queueSize ? 'disabled' : ''}>Finish Next</button>`;
+        }
+        if (c.waiting?.length) {
+            html += `<ul class="patient-list">`;
+            for (const p of c.waiting) {
+                html += `<li><span class="name">${esc(p.name)}</span><span class="badge urgency-${p.urgency}">${esc(p.urgencyName)}</span><span class="subtle">Pr:${p.priorityScore}</span></li>`;
+            }
+            html += `</ul>`;
+        } else html += `<p class="empty">Queue empty</p>`;
+        html += `</div>`;
+    }
+    html += '</div>';
+    box.innerHTML = html;
+}
+
+async function finishNext(clinicId) {
+    const res = await api('POST', '/api/admin/finish_next', { clinicId });
+    if (res.status === 'ok') refreshState();
+    else alert('Finish next failed: ' + (res.message || 'Unknown'));
+}
+
+/* ---------- Search ---------- */
+async function doSearch() {
+    const q = document.getElementById('search-input').value.trim();
+    const box = document.getElementById('search-results');
+    if (!q) { box.innerHTML = ''; return; }
+    const res = await api('GET', `/api/search?q=${encodeURIComponent(q)}`);
+    renderSearchResults(res, box);
+}
+
+async function doAdminSearch() {
+    const q = document.getElementById('admin-search-input').value.trim();
+    const box = document.getElementById('admin-search-results');
+    if (!q) { box.innerHTML = ''; return; }
+    const res = await api('GET', `/api/search?q=${encodeURIComponent(q)}`);
+    renderSearchResults(res, box);
+}
+
+function renderSearchResults(res, container) {
+    if (res.status !== 'ok' || !res.data) { container.innerHTML = `<p class="error">Search error: ${esc(res.message)}</p>`; return; }
+    const r = res.data.results || [];
+    if (!r.length) { container.innerHTML = '<p class="empty">No matches</p>'; return; }
+    let html = `<p class="subtle">${r.length} match(es) for "${esc(res.data.query)}"</p><ul class="patient-list">`;
+    for (const p of r) {
+        const badgeClass = p.isPending ? 'urgency-0' : (p.urgencyName === 'Critical' ? 'urgency-5' : 'urgency-2');
+        const badgeText  = p.isPending ? 'Pending' : esc(p.urgencyName);
+        html += `<li><span class="name">${esc(p.name)}</span><span class="badge ${badgeClass}">${badgeText}</span><span class="subtle">ID:${p.id} Clinic:${p.clinicId}</span></li>`;
+    }
+    html += '</ul>';
+    container.innerHTML = html;
+}
+
+/* ---------- Admin Management ---------- */
+function renderAdminClinics() {
+    const box = document.getElementById('admin-clinics');
+    if (!clinicsData.length) { box.innerHTML = '<p class="empty">No clinics</p>'; return; }
+    let html = '<ul class="manage-list">';
+    for (const c of clinicsData) {
+        html += `<li><span>${esc(c.name)} — ${esc(c.specialty)} (ID:${c.id})</span><button class="btn-small btn-danger" onclick="removeClinic(${c.id})">Remove</button></li>`;
+    }
+    html += '</ul>';
+    box.innerHTML = html;
+
+    const sel = document.getElementById('symptom-clinic-select');
+    sel.innerHTML = '';
+    clinicsData.forEach(c => { const o = document.createElement('option'); o.value = c.id; o.textContent = c.name; sel.appendChild(o); });
+    sel.onchange = renderAdminSymptoms;
+    renderAdminSymptoms();
+}
+
+function renderAdminSymptoms() {
+    const cid = parseInt(document.getElementById('symptom-clinic-select').value);
+    const box = document.getElementById('admin-symptoms-list');
+    const c = clinicsData.find(x => x.id === cid);
+    if (!c?.conditions?.length) { box.innerHTML = '<p class="empty">No symptoms for this clinic</p>'; return; }
+    let html = '<ul class="manage-list">';
+    for (const cond of c.conditions) {
+        html += `<li><span>${esc(cond.name)} — ${esc(cond.urgencyName)} (${cond.estimatedTreatmentMinutes} min)</span><button class="btn-small btn-danger" onclick="removeSymptom(${cid}, ${cond.index})">Remove</button></li>`;
+    }
+    html += '</ul>';
+    box.innerHTML = html;
+}
+
+async function addClinic() {
+    const name = document.getElementById('new-clinic-name').value.trim();
+    const spec = document.getElementById('new-clinic-spec').value.trim() || 'General';
+    if (!name) { alert('Enter clinic name'); return; }
+    const res = await api('POST', '/api/admin/add_clinic', { name, specialty: spec });
+    if (res.status === 'ok') { document.getElementById('new-clinic-name').value = ''; document.getElementById('new-clinic-spec').value = ''; await loadClinics(); refreshState(); }
+    else alert('Failed: ' + (res.message || 'Unknown'));
+}
+
+async function removeClinic(id) {
+    if (!confirm('Remove this clinic?')) return;
+    const res = await api('POST', '/api/admin/remove_clinic', { clinicId: id });
+    if (res.status === 'ok') { await loadClinics(); refreshState(); }
+    else alert('Failed: ' + (res.message || 'Unknown'));
+}
+
+async function addSymptom() {
+    const clinicId = parseInt(document.getElementById('symptom-clinic-select').value);
+    const name = document.getElementById('new-symptom-name').value.trim();
+    const urgency = parseInt(document.getElementById('new-symptom-urgency').value);
+    const time = parseInt(document.getElementById('new-symptom-time').value);
+    if (!name || !urgency || !time) { alert('Fill all fields'); return; }
+    const res = await api('POST', '/api/admin/add_symptom', { clinicId, name, urgencyLevel: urgency, estimatedTreatmentMinutes: time });
+    if (res.status === 'ok') { document.getElementById('new-symptom-name').value = ''; document.getElementById('new-symptom-time').value = ''; await loadClinics(); renderAdminSymptoms(); }
+    else alert('Failed: ' + (res.message || 'Unknown'));
+}
+
+async function removeSymptom(clinicId, idx) {
+    if (!confirm('Remove this symptom?')) return;
+    const res = await api('POST', '/api/admin/remove_symptom', { clinicId, symptomIndex: idx });
+    if (res.status === 'ok') { await loadClinics(); renderAdminSymptoms(); }
+    else alert('Failed: ' + (res.message || 'Unknown'));
+}
+
+async function doReset() {
+    if (!confirm('RESET everything? This cannot be undone.')) return;
+    const res = await api('POST', '/api/reset', {});
+    if (res.status === 'ok') { currentUser.patientId = null; sessionStorage.setItem('currentUser', JSON.stringify(currentUser)); await loadClinics(); refreshState(); }
+    else alert('Reset failed: ' + (res.message || 'Unknown'));
+}
+
+/* ---------- Utils ---------- */
+function esc(t) { if (!t) return ''; const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+function fmt(n) { return (typeof n === 'number') ? (Math.round(n * 100) / 100) : '0'; }
+function getClinicName(id) { const c = clinicsData.find(x => x.id === id); return c ? c.name : `Clinic ${id}`; }
+
+function initReceptionist() {
+    loadClinics().then(() => { refreshState(); refreshTimer = setInterval(refreshState, 3000); });
+}
+
+function initAdmin() {
+    loadClinics().then(() => { refreshState(); refreshTimer = setInterval(refreshState, 3000); });
+}
